@@ -1,37 +1,80 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - AygazSmartEnergy</title>
-    <script type="importmap"></script>
+    <title>@ViewData["Title"] - Aygaz Smart Energy</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/AygazSmartEnergy.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" />
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">AygazSmartEnergy</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
+     <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom box-shadow mb-3">
+    <div class="container-fluid">
+        <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+            <i class="fas fa-bolt me-2"></i>Aygaz Smart Energy
+        </a>
+
+        <!-- Hamburger Button -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarNav" aria-controls="navbarNav"
+                aria-expanded="false" aria-label="Menüyü Aç/Kapat">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Menü Kısmı -->
+        <div class="collapse navbar-collapse justify-content-between" id="navbarNav">
+            <ul class="navbar-nav flex-grow-1">
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Dashboard" asp-action="Index">
+                        <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Dashboard" asp-action="Devices">
+                        <i class="fas fa-microchip me-1"></i>Cihazlar
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" asp-controller="Dashboard" asp-action="Alerts">
+                        <i class="fas fa-bell me-1"></i>Uyarılar
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="analyticsDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-chart-line me-1"></i>Analiz
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="analyticsDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-chart-area me-2"></i>Enerji Analizi</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-leaf me-2"></i>Karbon Ayak İzi</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-lira-sign me-2"></i>Maliyet Analizi</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-lightbulb me-2"></i>Tasarruf Önerileri</a></li>
                     </ul>
-                </div>
-            </div>
-        </nav>
+                </li>
+            </ul>
+
+            <!-- Sağ Taraf (Kullanıcı Menüsü) -->
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user me-1"></i>Kullanıcı
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog me-2"></i>Profil</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Ayarlar</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i>Çıkış</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
     </header>
-    <div class="container">
+    <div class="container-fluid">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
@@ -39,12 +82,54 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2025 - AygazSmartEnergy - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <div class="row">
+                <div class="col-md-6">
+                    &copy; 2024 - Aygaz Smart Energy - <a asp-area="" asp-controller="Home" asp-action="Privacy">Gizlilik</a>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="badge bg-success" id="connectionStatus">
+                        <i class="fas fa-circle me-1"></i>Bağlı
+                    </span>
+                </div>
+            </div>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.min.js"></script>
+    
     @await RenderSectionAsync("Scripts", required: false)
+
+    <script>
+        // SignalR bağlantı durumu
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/energyHub")
+            .build();
+
+        connection.start().then(function () {
+            console.log("SignalR bağlantısı kuruldu");
+            document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle me-1"></i>Bağlı';
+            document.getElementById('connectionStatus').className = 'badge bg-success';
+        }).catch(function (err) {
+            console.error("SignalR bağlantı hatası:", err);
+            document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle me-1"></i>Bağlantı Yok';
+            document.getElementById('connectionStatus').className = 'badge bg-danger';
+        });
+
+        // DataTables otomatik başlatma
+        $(document).ready(function() {
+            $('.table').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/tr.json"
+                },
+                "pageLength": 25,
+                "responsive": true
+            });
+        });
+    </script>
 </body>
 </html>

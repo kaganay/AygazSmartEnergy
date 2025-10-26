@@ -1,0 +1,325 @@
+@{
+    ViewData["Title"] = "Uyarılar";
+}
+
+@model List<AygazSmartEnergy.Models.Alert>
+
+<div class="container-fluid">
+    <h1 class="mt-4">Uyarı Yönetimi</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active">Uyarılar</li>
+    </ol>
+
+    <!-- Filtreler -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-filter me-1"></i>
+            Filtreler
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label for="severityFilter" class="form-label">Şiddet</label>
+                    <select class="form-select" id="severityFilter">
+                        <option value="">Tümü</option>
+                        <option value="Critical">Kritik</option>
+                        <option value="High">Yüksek</option>
+                        <option value="Medium">Orta</option>
+                        <option value="Low">Düşük</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="statusFilter" class="form-label">Durum</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">Tümü</option>
+                        <option value="open">Açık</option>
+                        <option value="resolved">Çözüldü</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="typeFilter" class="form-label">Tip</label>
+                    <select class="form-select" id="typeFilter">
+                        <option value="">Tümü</option>
+                        <option value="HighConsumption">Yüksek Tüketim</option>
+                        <option value="DeviceOffline">Cihaz Çevrimdışı</option>
+                        <option value="TemperatureAnomaly">Sıcaklık Anomalisi</option>
+                        <option value="VoltageAnomaly">Voltaj Anomalisi</option>
+                        <option value="LowPowerFactor">Düşük Güç Faktörü</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            <i class="fas fa-search"></i> Filtrele
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uyarı Listesi -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-bell me-1"></i>
+            Uyarı Listesi
+            <div class="float-end">
+                <button class="btn btn-success btn-sm" onclick="markAllAsRead()">
+                    <i class="fas fa-check"></i> Tümünü Okundu İşaretle
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="alertsTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th>Başlık</th>
+                                <th>Mesaj</th>
+                                <th>Cihaz</th>
+                                <th>Tip</th>
+                                <th>Şiddet</th>
+                                <th>Tarih</th>
+                                <th>Durum</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var alert in Model)
+                            {
+                                <tr class="@(alert.IsResolved ? "" : "table-warning")">
+                                    <td>
+                                        <input type="checkbox" class="alert-checkbox" value="@alert.Id">
+                                    </td>
+                                    <td>@alert.Title</td>
+                                    <td>@alert.Message</td>
+                                    <td>@(alert.Device?.DeviceName ?? "Genel")</td>
+                                    <td>@alert.AlertType</td>
+                                    <td>
+                                        <span class="badge @(alert.Severity switch {
+                                            "Critical" => "bg-danger",
+                                            "High" => "bg-warning",
+                                            "Medium" => "bg-info",
+                                            "Low" => "bg-secondary",
+                                            _ => "bg-secondary"
+                                        })">
+                                            @alert.Severity
+                                        </span>
+                                    </td>
+                                    <td>@alert.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="badge @(alert.IsResolved ? "bg-success" : "bg-warning")">
+                                            @(alert.IsResolved ? "Çözüldü" : "Açık")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            @if (!alert.IsResolved)
+                                            {
+                                                <button class="btn btn-sm btn-success" onclick="resolveAlert(@alert.Id)">
+                                                    <i class="fas fa-check"></i> Çöz
+                                                </button>
+                                            }
+                                            <button class="btn btn-sm btn-danger" onclick="deleteAlert(@alert.Id)">
+                                                <i class="fas fa-trash"></i> Sil
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted">
+                    <i class="fas fa-bell-slash fa-3x mb-3"></i>
+                    <p>Henüz uyarı bulunmuyor.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Uyarı Çözme Modal -->
+<div class="modal fade" id="resolveAlertModal" tabindex="-1" aria-labelledby="resolveAlertModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resolveAlertModalLabel">Uyarıyı Çöz</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="resolveAlertForm">
+                <div class="modal-body">
+                    <input type="hidden" id="alertId" name="alertId">
+                    <div class="mb-3">
+                        <label for="actionTaken" class="form-label">Alınan Aksiyon</label>
+                        <textarea class="form-control" id="actionTaken" name="actionTaken" rows="3" required 
+                                  placeholder="Uyarıyı çözmek için ne yaptığınızı açıklayın..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-success">Uyarıyı Çöz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Uyarı çözme
+        function resolveAlert(alertId) {
+            document.getElementById('alertId').value = alertId;
+            const modal = new bootstrap.Modal(document.getElementById('resolveAlertModal'));
+            modal.show();
+        }
+
+        // Uyarı silme
+        function deleteAlert(alertId) {
+            if (confirm('Bu uyarıyı silmek istediğinizden emin misiniz?')) {
+                fetch(`/Dashboard/DeleteAlert/${alertId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Hata: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu');
+                });
+            }
+        }
+
+        // Uyarı çözme formu
+        document.getElementById('resolveAlertForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const alertId = document.getElementById('alertId').value;
+            const actionTaken = document.getElementById('actionTaken').value;
+
+            fetch(`/Dashboard/ResolveAlert`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: alertId,
+                    actionTaken: actionTaken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Hata: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Bir hata oluştu');
+            });
+        });
+
+        // Tümünü seç/seçme
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.alert-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        // Tümünü okundu işaretle
+        function markAllAsRead() {
+            const checkedBoxes = document.querySelectorAll('.alert-checkbox:checked');
+            const alertIds = Array.from(checkedBoxes).map(cb => cb.value);
+            
+            if (alertIds.length === 0) {
+                alert('Lütfen en az bir uyarı seçin');
+                return;
+            }
+
+            if (confirm(`${alertIds.length} uyarıyı okundu olarak işaretlemek istediğinizden emin misiniz?`)) {
+                fetch('/Dashboard/MarkAllAsRead', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ alertIds: alertIds })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Hata: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu');
+                });
+            }
+        }
+
+        // Filtreleri uygula
+        function applyFilters() {
+            const severity = document.getElementById('severityFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            
+            // URL parametrelerini oluştur
+            const params = new URLSearchParams();
+            if (severity) params.append('severity', severity);
+            if (status) params.append('status', status);
+            if (type) params.append('type', type);
+            
+            // Sayfayı yenile
+            window.location.href = window.location.pathname + '?' + params.toString();
+        }
+
+        // Filtreleri temizle
+        function clearFilters() {
+            document.getElementById('severityFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            window.location.href = window.location.pathname;
+        }
+
+        // SignalR bağlantısı
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/energyHub")
+            .build();
+
+        connection.on("ReceiveAlert", (alert) => {
+            console.log("Yeni uyarı:", alert);
+            // Uyarı listesini güncelle
+            location.reload();
+        });
+
+        connection.start().catch(err => console.error(err.toString()));
+    </script>
+}

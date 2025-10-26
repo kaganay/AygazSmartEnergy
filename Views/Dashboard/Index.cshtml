@@ -1,0 +1,276 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+@model AygazSmartEnergy.Models.DashboardViewModel
+
+<div class="container-fluid">
+    <h1 class="mt-4">Akıllı Enerji Yönetim Paneli</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item active">Dashboard</li>
+    </ol>
+
+    <!-- İstatistik Kartları -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Toplam Cihaz</div>
+                            <div class="h4">@Model.TotalDevices</div>
+                        </div>
+                        <div><i class="fas fa-microchip fa-2x"></i></div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="Devices">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Aktif Cihaz</div>
+                            <div class="h4">@Model.ActiveDevices</div>
+                        </div>
+                        <div><i class="fas fa-check-circle fa-2x"></i></div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="Devices">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Enerji Tüketimi (24h)</div>
+                            <div class="h4">@Model.TotalEnergyConsumed kWh</div>
+                        </div>
+                        <div><i class="fas fa-bolt fa-2x"></i></div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="EnergyAnalysis">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-danger text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Maliyet (24h)</div>
+                            <div class="h4">@Model.TotalCost.ToString("C2")</div>
+                        </div>
+                        <div><i class="fas fa-lira-sign fa-2x"></i></div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex align-items-center justify-content-between">
+                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="BillPrediction">Detayları Görüntüle</a>
+                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafikler -->
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-area me-1"></i>
+                    Enerji Tüketim Grafiği (Son 24 Saat)
+                </div>
+                <div class="card-body">
+                    <canvas id="energyChart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Cihaz Dağılımı
+                </div>
+                <div class="card-body">
+                    <canvas id="deviceChart" width="100%" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cihaz Tablosu -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-table me-1"></i>
+            Cihaz Durumu
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="deviceTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Cihaz Adı</th>
+                            <th>Konum</th>
+                            <th>Son Tüketim</th>
+                            <th>Durum</th>
+                            <th>Son Güncelleme</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var device in Model.Devices)
+                        {
+                            <tr>
+                                <td>@device.DeviceName</td>
+                                <td>@device.Location</td>
+                                <td>@(device.EnergyConsumptions.FirstOrDefault()?.EnergyUsed.ToString("F2") ?? "N/A") kWh</td>
+                                <td>
+                                    <span class="badge @(device.IsActive ? "bg-success" : "bg-danger")">
+                                        @(device.IsActive ? "Aktif" : "Pasif")
+                                    </span>
+                                </td>
+                                <td>@(device.EnergyConsumptions.FirstOrDefault()?.RecordedAt.ToString("g") ?? "N/A")</td>
+                                <td>
+                                    <a asp-controller="Dashboard" asp-action="DeviceDetails" asp-route-id="@device.Id" class="btn btn-sm btn-primary">Detay</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uyarılar -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-bell me-1"></i>
+            Son Uyarılar
+        </div>
+        <div class="card-body">
+            @if (Model.RecentAlerts.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Başlık</th>
+                                <th>Mesaj</th>
+                                <th>Şiddet</th>
+                                <th>Tarih</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var alert in Model.RecentAlerts)
+                            {
+                                <tr>
+                                    <td>@alert.Title</td>
+                                    <td>@alert.Message</td>
+                                    <td>
+                                        <span class="badge @(alert.Severity switch {
+                                            "Critical" => "bg-danger",
+                                            "High" => "bg-warning",
+                                            "Medium" => "bg-info",
+                                            "Low" => "bg-secondary",
+                                            _ => "bg-secondary"
+                                        })">
+                                            @alert.Severity
+                                        </span>
+                                    </td>
+                                    <td>@alert.CreatedAt.ToString("g")</td>
+                                    <td>
+                                        <span class="badge @(alert.IsResolved ? "bg-success" : "bg-warning")">
+                                            @(alert.IsResolved ? "Çözüldü" : "Açık")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>Henüz uyarı bulunmuyor.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        // Enerji tüketim grafiği
+        const energyCtx = document.getElementById('energyChart').getContext('2d');
+        const energyChart = new Chart(energyCtx, {
+            type: 'line',
+            data: {
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                datasets: [{
+                    label: 'Enerji Tüketimi (kWh)',
+                    data: [12, 19, 3, 5, 2, 3, 8],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Cihaz dağılım grafiği
+        const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+        const deviceChart = new Chart(deviceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Aktif', 'Pasif'],
+                datasets: [{
+                    data: [@Model.ActiveDevices, @(Model.TotalDevices - Model.ActiveDevices)],
+                    backgroundColor: ['#28a745', '#dc3545']
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+
+        // SignalR bağlantısı
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/energyHub")
+            .build();
+
+        connection.on("ReceiveSensorData", (sensorData) => {
+            console.log("Yeni sensör verisi:", sensorData);
+            // Dashboard'u güncelle
+            location.reload();
+        });
+
+        connection.on("ReceiveAlert", (alert) => {
+            console.log("Yeni uyarı:", alert);
+            // Uyarıları güncelle
+            location.reload();
+        });
+
+        connection.start().catch(err => console.error(err.toString()));
+    </script>
+}

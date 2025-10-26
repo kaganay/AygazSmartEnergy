@@ -1,0 +1,181 @@
+@{
+    ViewData["Title"] = "Cihazlar";
+}
+
+@model List<AygazSmartEnergy.Models.Device>
+
+<div class="container-fluid">
+    <h1 class="mt-4">Cihaz Yönetimi</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active">Cihazlar</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-microchip me-1"></i>
+            Cihaz Listesi
+            <div class="float-end">
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+                    <i class="fas fa-plus"></i> Yeni Cihaz Ekle
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="devicesTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Cihaz Adı</th>
+                            <th>Tip</th>
+                            <th>Konum</th>
+                            <th>Durum</th>
+                            <th>Kurulum Tarihi</th>
+                            <th>Son Bakım</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var device in Model)
+                        {
+                            <tr>
+                                <td>@device.DeviceName</td>
+                                <td>@device.DeviceType</td>
+                                <td>@device.Location</td>
+                                <td>
+                                    <span class="badge @(device.IsActive ? "bg-success" : "bg-danger")">
+                                        @(device.IsActive ? "Aktif" : "Pasif")
+                                    </span>
+                                </td>
+                                <td>@device.InstalledAt.ToString("dd.MM.yyyy")</td>
+                                <td>@(device.LastMaintenanceAt?.ToString("dd.MM.yyyy") ?? "Bakım yapılmadı")</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-controller="Dashboard" asp-action="DeviceDetails" asp-route-id="@device.Id" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i> Detay
+                                        </a>
+                                        <a asp-controller="Dashboard" asp-action="EnergyAnalysis" asp-route-deviceId="@device.Id" 
+                                           class="btn btn-sm btn-info">
+                                            <i class="fas fa-chart-line"></i> Analiz
+                                        </a>
+                                        <button class="btn btn-sm btn-warning" onclick="toggleDevice(@device.Id, @device.IsActive.ToString().ToLower())">
+                                            <i class="fas fa-power-off"></i> @(device.IsActive ? "Kapat" : "Aç")
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeni Cihaz Ekleme Modal -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1" aria-labelledby="addDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDeviceModalLabel">Yeni Cihaz Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addDeviceForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="deviceName" class="form-label">Cihaz Adı</label>
+                        <input type="text" class="form-control" id="deviceName" name="deviceName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deviceType" class="form-label">Cihaz Tipi</label>
+                        <select class="form-select" id="deviceType" name="deviceType" required>
+                            <option value="">Seçiniz</option>
+                            <option value="Smart Meter">Akıllı Sayaç</option>
+                            <option value="Pump">Pompa</option>
+                            <option value="Lighting">Aydınlatma</option>
+                            <option value="HVAC">HVAC</option>
+                            <option value="Other">Diğer</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Konum</label>
+                        <input type="text" class="form-control" id="location" name="location" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Açıklama</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Cihaz Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Cihaz durumunu değiştir
+        function toggleDevice(deviceId, isActive) {
+            const action = isActive ? 'deactivate' : 'activate';
+            const actionText = isActive ? 'kapatmak' : 'açmak';
+            
+            if (confirm(`Cihazı ${actionText} istediğinizden emin misiniz?`)) {
+                fetch(`/api/iot/devices/${deviceId}/${action}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Hata: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Bir hata oluştu');
+                });
+            }
+        }
+
+        // Yeni cihaz ekleme formu
+        document.getElementById('addDeviceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const deviceData = {
+                deviceName: formData.get('deviceName'),
+                deviceType: formData.get('deviceType'),
+                location: formData.get('location'),
+                description: formData.get('description')
+            };
+
+            fetch('/api/iot/devices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(deviceData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Hata: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Bir hata oluştu');
+            });
+        });
+    </script>
+}

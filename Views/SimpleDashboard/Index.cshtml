@@ -1,0 +1,226 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="container-fluid">
+    <h1 class="mt-4">🚀 Aygaz Smart Energy - Dashboard</h1>
+    <p class="text-muted">Akıllı Enerji Yönetim Sistemi</p>
+
+    <!-- İstatistik Kartları -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Toplam Cihaz</div>
+                            <div class="h4">@ViewBag.TotalDevices</div>
+                        </div>
+                        <div><i class="fas fa-microchip fa-2x"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Aktif Cihaz</div>
+                            <div class="h4">@ViewBag.ActiveDevices</div>
+                        </div>
+                        <div><i class="fas fa-check-circle fa-2x"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Toplam Enerji</div>
+                            <div class="h4">@ViewBag.TotalEnergy kWh</div>
+                        </div>
+                        <div><i class="fas fa-bolt fa-2x"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-danger text-white mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="small text-white-50">Toplam Maliyet</div>
+                            <div class="h4">@ViewBag.TotalCost.ToString("C2")</div>
+                        </div>
+                        <div><i class="fas fa-lira-sign fa-2x"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cihaz Listesi -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-microchip me-1"></i>
+            Cihazlar
+        </div>
+        <div class="card-body">
+            @if (ViewBag.Devices != null && ((List<Device>)ViewBag.Devices).Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Cihaz Adı</th>
+                                <th>Tip</th>
+                                <th>Konum</th>
+                                <th>Durum</th>
+                                <th>Kurulum Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var device in (List<Device>)ViewBag.Devices)
+                            {
+                                <tr>
+                                    <td>@device.DeviceName</td>
+                                    <td>@device.DeviceType</td>
+                                    <td>@device.Location</td>
+                                    <td>
+                                        <span class="badge @(device.IsActive ? "bg-success" : "bg-danger")">
+                                            @(device.IsActive ? "Aktif" : "Pasif")
+                                        </span>
+                                    </td>
+                                    <td>@device.InstalledAt.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted">
+                    <i class="fas fa-microchip fa-3x mb-3"></i>
+                    <p>Henüz cihaz bulunmuyor.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Uyarılar -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-bell me-1"></i>
+            Son Uyarılar
+        </div>
+        <div class="card-body">
+            @if (ViewBag.Alerts != null && ((List<Alert>)ViewBag.Alerts).Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Başlık</th>
+                                <th>Mesaj</th>
+                                <th>Şiddet</th>
+                                <th>Tarih</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var alert in (List<Alert>)ViewBag.Alerts)
+                            {
+                                <tr>
+                                    <td>@alert.Title</td>
+                                    <td>@alert.Message</td>
+                                    <td>
+                                        <span class="badge @(alert.Severity switch {
+                                            "Critical" => "bg-danger",
+                                            "High" => "bg-warning",
+                                            "Medium" => "bg-info",
+                                            "Low" => "bg-secondary",
+                                            _ => "bg-secondary"
+                                        })">
+                                            @alert.Severity
+                                        </span>
+                                    </td>
+                                    <td>@alert.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="badge @(alert.IsResolved ? "bg-success" : "bg-warning")">
+                                            @(alert.IsResolved ? "Çözüldü" : "Açık")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted">
+                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                    <p>Henüz uyarı bulunmuyor.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Son Enerji Tüketimleri -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-chart-line me-1"></i>
+            Son Enerji Tüketimleri
+        </div>
+        <div class="card-body">
+            @if (ViewBag.RecentConsumptions != null && ((List<EnergyConsumption>)ViewBag.RecentConsumptions).Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Cihaz ID</th>
+                                <th>Enerji (kWh)</th>
+                                <th>Maliyet</th>
+                                <th>Karbon Ayak İzi</th>
+                                <th>Tarih</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var consumption in (List<EnergyConsumption>)ViewBag.RecentConsumptions)
+                            {
+                                <tr>
+                                    <td>@consumption.DeviceId</td>
+                                    <td>@consumption.EnergyUsed.ToString("F2")</td>
+                                    <td>@consumption.CostPerHour.ToString("C2")</td>
+                                    <td>@consumption.CarbonFootprint.ToString("F2") kg CO2</td>
+                                    <td>@consumption.RecordedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center text-muted">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <p>Henüz enerji tüketim verisi bulunmuyor.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        console.log("🚀 Aygaz Smart Energy Dashboard yüklendi!");
+        console.log("Toplam Cihaz:", @ViewBag.TotalDevices);
+        console.log("Aktif Cihaz:", @ViewBag.ActiveDevices);
+        console.log("Toplam Enerji:", @ViewBag.TotalEnergy);
+    </script>
+}
