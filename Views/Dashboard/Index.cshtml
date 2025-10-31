@@ -10,6 +10,37 @@
         <li class="breadcrumb-item active">Dashboard</li>
     </ol>
 
+    <!-- Canlı Sensör Verileri -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-thermometer-half me-2"></i>Sıcaklık</h5>
+                    <h2 id="liveTemperature">-</h2>
+                    <small>°C</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-bolt me-2"></i>Voltaj</h5>
+                    <h2 id="liveVoltage">-</h2>
+                    <small>V</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-fan me-2"></i>Fan Durumu</h5>
+                    <h2 id="liveFanStatus">-</h2>
+                    <small id="fanStatusText">Kapalı</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- İstatistik Kartları -->
     <div class="row">
         <div class="col-xl-3 col-md-6">
@@ -270,6 +301,62 @@
             // Uyarıları güncelle
             location.reload();
         });
+
+        // Canlı sensör verilerini dinle
+        connection.on("ReceiveSensorData", (sensorData) => {
+            console.log("Canlı sensör verisi:", sensorData);
+            
+            // Sıcaklık güncelle
+            if (sensorData.temperature && sensorData.temperature > 0) {
+                document.getElementById('liveTemperature').textContent = sensorData.temperature.toFixed(1);
+            }
+            
+            // Voltaj güncelle
+            if (sensorData.voltage && sensorData.voltage > 0) {
+                document.getElementById('liveVoltage').textContent = sensorData.voltage.toFixed(2);
+            }
+        });
+
+        // Fan durumunu dinle
+        connection.on("ReceiveFanStatus", (fanStatus) => {
+            console.log("Fan durumu:", fanStatus);
+            const fanStatusEl = document.getElementById('liveFanStatus');
+            const fanStatusTextEl = document.getElementById('fanStatusText');
+            
+            if (fanStatusEl && fanStatusTextEl) {
+                fanStatusEl.textContent = fanStatus.isOn ? 'AÇIK' : 'KAPALI';
+                fanStatusTextEl.textContent = fanStatus.isOn ? 'Çalışıyor' : 'Kapalı';
+            }
+        });
+
+        // İlk yüklemede fan durumunu al
+        fetch('/api/IoT/fan')
+            .then(r => r.json())
+            .then(d => {
+                if (d && d.success) {
+                    const fanStatusEl = document.getElementById('liveFanStatus');
+                    const fanStatusTextEl = document.getElementById('fanStatusText');
+                    if (fanStatusEl && fanStatusTextEl) {
+                        fanStatusEl.textContent = d.on ? 'AÇIK' : 'KAPALI';
+                        fanStatusTextEl.textContent = d.on ? 'Çalışıyor' : 'Kapalı';
+                    }
+                }
+            }).catch(() => {});
+
+        // Son sensör verilerini yükle
+        fetch('/api/IoT/sensor-data/latest?count=1')
+            .then(r => r.json())
+            .then(d => {
+                if (d && d.success && d.data && d.data.length > 0) {
+                    const sensor = d.data[0];
+                    if (sensor.temperature && sensor.temperature > 0) {
+                        document.getElementById('liveTemperature').textContent = sensor.temperature.toFixed(1);
+                    }
+                    if (sensor.voltage && sensor.voltage > 0) {
+                        document.getElementById('liveVoltage').textContent = sensor.voltage.toFixed(2);
+                    }
+                }
+            }).catch(() => {});
 
         connection.start().catch(err => console.error(err.toString()));
     </script>

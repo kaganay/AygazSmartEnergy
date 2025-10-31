@@ -4,11 +4,18 @@ using AygazSmartEnergy.Services;   // Servis arayüzleri (IEnergyAnalysisService
 using AygazSmartEnergy.Hubs;       // SignalR için EnergyHub sınıfı
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 🔹 MVC servislerini ekle
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options =>
+    {
+        // Döngüsel referans sorununu çöz
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 
 // 🔹 Veritabanı bağlantısı (EF Core)
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -39,6 +46,7 @@ builder.Services.AddScoped<IEnergyAnalysisService, EnergyAnalysisService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAIMLService, AIMLService>();
 builder.Services.AddHttpClient<IAIMLService, AIMLService>();
+builder.Services.AddScoped<IDeviceControlService, DeviceControlService>();
 
 // 🔹 CORS (IoT cihazlarının API’ye bağlanabilmesi için)
 builder.Services.AddCors(options =>

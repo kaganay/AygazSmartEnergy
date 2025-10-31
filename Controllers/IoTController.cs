@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using AygazSmartEnergy.Data;
 using AygazSmartEnergy.Models;
+using AygazSmartEnergy.Hubs;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using AygazSmartEnergy.Services;
 
 namespace AygazSmartEnergy.Controllers
 {
@@ -12,11 +16,17 @@ namespace AygazSmartEnergy.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILogger<IoTController> _logger;
+        private readonly IConfiguration _configuration;
+        private readonly IDeviceControlService _deviceControlService;
+        private readonly IHubContext<EnergyHub> _hubContext;
 
-        public IoTController(AppDbContext context, ILogger<IoTController> logger)
+        public IoTController(AppDbContext context, ILogger<IoTController> logger, IConfiguration configuration, IDeviceControlService deviceControlService, IHubContext<EnergyHub> hubContext)
         {
             _context = context;
             _logger = logger;
+            _configuration = configuration;
+            _deviceControlService = deviceControlService;
+            _hubContext = hubContext;
         }
 
         /// <summary>
@@ -56,6 +66,61 @@ namespace AygazSmartEnergy.Controllers
 
                 _logger.LogInformation($"Sensor data received from {request.SensorName} at {sensorData.RecordedAt}");
 
+                // MQ-2 gaz eşik kontrolü ve fan kontrolü
+                var autoFanEnabled = _configuration.GetValue<bool>("GasSettings:AutoFanEnabled");
+                var threshold = _configuration.GetValue<double>("GasSettings:Mq2Threshold", 40.0);
+                var isMq2 = string.Equals(request.SensorType, "Gas", StringComparison.OrdinalIgnoreCase) ||
+                            request.SensorName.Contains("mq2", StringComparison.OrdinalIgnoreCase) ||
+                            (request.RawData != null && request.RawData.TryGetValue("sensor", out var sensorNameObj) && sensorNameObj?.ToString()?.Contains("mq2", StringComparison.OrdinalIgnoreCase) == true);
+
+                bool? fanStateChanged = null;
+                if (autoFanEnabled && isMq2)
+                {
+                    if (request.GasLevel > threshold)
+                    {
+                        var newState = await _deviceControlService.SetFanStateAsync(true);
+                        fanStateChanged = newState;
+                        _logger.LogWarning("Gas level {gas} exceeded threshold {threshold}. Fan turned ON.", request.GasLevel, threshold);
+                    }
+                    else if (_deviceControlService.GetFanState())
+                    {
+                        var newState = await _deviceControlService.SetFanStateAsync(false);
+                        fanStateChanged = newState;
+                        _logger.LogInformation("Gas level {gas} below threshold {threshold}. Fan turned OFF.", request.GasLevel, threshold);
+                    }
+                }
+
+                // DHT22 sıcaklık kontrolü ve fan kontrolü
+                var isDht22 = string.Equals(request.SensorType, "Temperature", StringComparison.OrdinalIgnoreCase) ||
+                              request.SensorName.Contains("dht22", StringComparison.OrdinalIgnoreCase) ||
+                              request.SensorName.Contains("dht", StringComparison.OrdinalIgnoreCase) ||
+                              (request.Temperature > 0 && request.RawData != null && request.RawData.TryGetValue("sensor", out var sensorObj) && sensorObj?.ToString()?.Contains("dht", StringComparison.OrdinalIgnoreCase) == true);
+
+                if (isDht22 && request.Temperature > 0)
+                {
+                    var previousFanState = _deviceControlService.GetFanState();
+                    var newFanState = await _deviceControlService.CheckTemperatureAndControlFanAsync(request.Temperature);
+                    if (previousFanState != newFanState)
+                    {
+                        fanStateChanged = newFanState;
+                    }
+                }
+
+                // SignalR ile sensör verisini broadcast et
+                await _hubContext.NotifySensorDataUpdate(sensorData);
+
+                // Fan durumu değiştiyse SignalR ile bildir
+                if (fanStateChanged.HasValue)
+                {
+                    await _hubContext.Clients.All.SendAsync("ReceiveFanStatus", new
+                    {
+                        Type = "FanStatusChanged",
+                        IsOn = fanStateChanged.Value,
+                        ChangedAt = DateTime.Now,
+                        Reason = isDht22 ? $"Temperature: {request.Temperature}°C" : $"Gas: {request.GasLevel}%"
+                    });
+                }
+
                 // Enerji tüketimi verisi de oluştur (eğer DeviceId varsa)
                 if (request.DeviceId.HasValue)
                 {
@@ -66,7 +131,9 @@ namespace AygazSmartEnergy.Controllers
                     success = true, 
                     message = "Sensor data received successfully",
                     id = sensorData.Id,
-                    timestamp = sensorData.RecordedAt
+                    timestamp = sensorData.RecordedAt,
+                    autoFan = fanStateChanged,
+                    fanState = _deviceControlService.GetFanState()
                 });
             }
             catch (Exception ex)
@@ -74,6 +141,36 @@ namespace AygazSmartEnergy.Controllers
                 _logger.LogError(ex, "Error processing sensor data");
                 return StatusCode(500, new { success = false, message = "Internal server error" });
             }
+        }
+
+        /// <summary>
+        /// Fan durumunu getirir
+        /// </summary>
+        [HttpGet("fan")]
+        public IActionResult GetFan()
+        {
+            var state = _deviceControlService.GetFanState();
+            return Ok(new { success = true, on = state });
+        }
+
+        /// <summary>
+        /// Fanı manuel aç/kapat
+        /// </summary>
+        [HttpPost("fan")]
+        public async Task<IActionResult> SetFan([FromBody] FanToggleRequest request)
+        {
+            var state = await _deviceControlService.SetFanStateAsync(request.On);
+            
+            // SignalR ile fan durumunu bildir
+            await _hubContext.Clients.All.SendAsync("ReceiveFanStatus", new
+            {
+                Type = "FanStatusChanged",
+                IsOn = state,
+                ChangedAt = DateTime.Now,
+                Reason = "Manual"
+            });
+
+            return Ok(new { success = true, on = state });
         }
 
         /// <summary>
@@ -113,7 +210,7 @@ namespace AygazSmartEnergy.Controllers
             try
             {
                 IQueryable<SensorData> query = _context.SensorDatas
-                    .Include(s => s.Device);
+                    .AsNoTracking(); // Döngüsel referansı önlemek için tracking'i kapat
 
                 if (deviceId.HasValue)
                 {
@@ -123,6 +220,24 @@ namespace AygazSmartEnergy.Controllers
                 var sensorData = await query
                     .OrderByDescending(s => s.RecordedAt)
                     .Take(count)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.SensorName,
+                        s.SensorType,
+                        s.Temperature,
+                        s.GasLevel,
+                        s.EnergyUsage,
+                        s.Voltage,
+                        s.Current,
+                        s.PowerFactor,
+                        s.Location,
+                        s.Status,
+                        s.RecordedAt,
+                        s.DeviceId,
+                        s.FirmwareVersion,
+                        s.SignalStrength
+                    })
                     .ToListAsync();
 
                 return Ok(new { success = true, data = sensorData });
@@ -218,5 +333,10 @@ namespace AygazSmartEnergy.Controllers
     {
         public bool IsActive { get; set; }
         public DateTime? LastMaintenanceAt { get; set; }
+    }
+
+    public class FanToggleRequest
+    {
+        public bool On { get; set; }
     }
 }
