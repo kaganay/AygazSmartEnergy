@@ -52,6 +52,12 @@ namespace AygazSmartEnergy.Controllers
                 var totalCost = recentConsumptions.Sum(e => e.CostPerHour);
                 var totalCarbonFootprint = recentConsumptions.Sum(e => e.CarbonFootprint);
 
+                var estimatedMonthlyEnergy = totalEnergyConsumed * 30; // kaba tahmin
+                var potentialEnergySavings = estimatedMonthlyEnergy * 0.15; // %15 iyileştirme hedefi
+                var averageCostPerKwh = totalEnergyConsumed > 0 ? totalCost / totalEnergyConsumed : 0;
+                var potentialCostSavings = potentialEnergySavings * averageCostPerKwh;
+                var carbonIntensity = totalEnergyConsumed > 0 ? totalCarbonFootprint / totalEnergyConsumed : 0;
+
                 // Son uyarılar
                 var recentAlerts = await _context.Alerts
                     .Where(a => a.UserId == userId && !a.IsResolved)
@@ -66,6 +72,10 @@ namespace AygazSmartEnergy.Controllers
                     TotalEnergyConsumed = Math.Round(totalEnergyConsumed, 2),
                     TotalCost = Math.Round(totalCost, 2),
                     TotalCarbonFootprint = Math.Round(totalCarbonFootprint, 2),
+                    EstimatedMonthlyEnergy = Math.Round(estimatedMonthlyEnergy, 2),
+                    PotentialEnergySavings = Math.Round(potentialEnergySavings, 2),
+                    PotentialCostSavings = Math.Round(potentialCostSavings, 2),
+                    CarbonIntensity = Math.Round(carbonIntensity, 3),
                     RecentAlerts = recentAlerts,
                     Devices = devices
                 };
@@ -157,6 +167,57 @@ namespace AygazSmartEnergy.Controllers
             {
                 _logger.LogError(ex, "Error loading energy analysis for device {DeviceId}", deviceId);
                 return NotFound();
+            }
+        }
+
+        /// <summary>
+        /// Fatura tahmini ve maliyet analizi
+        /// </summary>
+        public async Task<IActionResult> BillPrediction()
+        {
+            try
+            {
+                var userId = "1";
+                var devices = await _context.Devices
+                    .Where(d => d.UserId == userId)
+                    .Include(d => d.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).Take(30))
+                    .ToListAsync();
+
+                var last24Hours = DateTime.Now.AddHours(-24);
+                var deviceIds = devices.Select(d => d.Id).ToList();
+                var consumptions = await _context.EnergyConsumptions
+                    .Where(e => e.DeviceId.HasValue && deviceIds.Contains(e.DeviceId.Value) &&
+                                e.RecordedAt >= last24Hours)
+                    .ToListAsync();
+
+                var dailyEnergy = consumptions.Sum(e => e.EnergyUsed);
+                var dailyCost = consumptions.Sum(e => e.CostPerHour);
+
+                var estimatedMonthlyEnergy = dailyEnergy * 30;
+                var estimatedMonthlyCost = dailyCost * 30;
+                var potentialSavings = estimatedMonthlyCost * 0.12; // varsayılan %12 iyileştirme
+
+                var topConsumers = devices
+                    .OrderByDescending(d => d.EnergyConsumptions.FirstOrDefault()?.EnergyUsed ?? 0)
+                    .Take(5)
+                    .ToList();
+
+                var model = new ModelsNS.BillingSummaryViewModel
+                {
+                    DailyEnergy = Math.Round(dailyEnergy, 2),
+                    DailyCost = Math.Round(dailyCost, 2),
+                    EstimatedMonthlyEnergy = Math.Round(estimatedMonthlyEnergy, 2),
+                    EstimatedMonthlyCost = Math.Round(estimatedMonthlyCost, 2),
+                    PotentialMonthlySavings = Math.Round(potentialSavings, 2),
+                    TopConsumers = topConsumers
+                };
+
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating billing summary");
+                return View(new ModelsNS.BillingSummaryViewModel());
             }
         }
 

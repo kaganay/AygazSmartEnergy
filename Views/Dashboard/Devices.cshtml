@@ -6,10 +6,16 @@
 
 <div class="container-fluid">
     <h1 class="mt-4">Cihaz Yönetimi</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
-        <li class="breadcrumb-item active">Cihazlar</li>
-    </ol>
+    <nav aria-label="breadcrumb" class="mb-4">
+        <div class="btn-group" role="group" aria-label="Breadcrumb">
+            <a class="btn btn-outline-primary" asp-controller="Dashboard" asp-action="Index">
+                <i class="fas fa-home me-2"></i>Dashboard
+            </a>
+            <span class="btn btn-primary active" aria-current="page">
+                <i class="fas fa-microchip me-2"></i>Cihazlar
+            </span>
+        </div>
+    </nav>
 
     <div class="card mb-4">
         <div class="card-header">
@@ -179,3 +185,10 @@
         });
     </script>
 }
+
+
+
+
+
+
+

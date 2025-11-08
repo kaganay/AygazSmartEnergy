@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
@@ -10,6 +13,14 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" />
 </head>
 <body>
+    @{
+        var isSignedIn = SignInManager.IsSignedIn(User);
+        ApplicationUser? currentUser = null;
+        if (isSignedIn)
+        {
+            currentUser = await UserManager.GetUserAsync(User);
+        }
+    }
     <header>
      <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom box-shadow mb-3">
     <div class="container-fluid">
@@ -47,16 +58,16 @@
                         <i class="fas fa-chart-line me-1"></i>Analiz
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="analyticsDropdown">
-                        <li><a class="dropdown-item" href="#"><i class="fas fa-chart-area me-2"></i>Enerji Analizi</a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fas fa-leaf me-2"></i>Karbon Ayak İzi</a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fas fa-lira-sign me-2"></i>Maliyet Analizi</a></li>
-                        <li><a class="dropdown-item" href="#"><i class="fas fa-lightbulb me-2"></i>Tasarruf Önerileri</a></li>
+                        <li><a class="dropdown-item" asp-controller="Dashboard" asp-action="Devices"><i class="fas fa-chart-area me-2"></i>Enerji Analizi (Cihaz Seç)</a></li>
+                        <li><a class="dropdown-item" asp-controller="Dashboard" asp-action="Index" asp-fragment="surdurulebilirlik"><i class="fas fa-leaf me-2"></i>Karbon Ayak İzi</a></li>
+                        <li><a class="dropdown-item" asp-controller="Dashboard" asp-action="BillPrediction"><i class="fas fa-lira-sign me-2"></i>Maliyet Analizi</a></li>
+                        <li><a class="dropdown-item" asp-controller="Dashboard" asp-action="BillPrediction" asp-fragment="tasarruf"><i class="fas fa-lightbulb me-2"></i>Tasarruf Önerileri</a></li>
                     </ul>
                 </li>
             </ul>
 
             <!-- Sağ Taraf (Kullanıcı Menüsü) -->
-            <ul class="navbar-nav">
+            <ul class="navbar-nav align-items-center">
                 <li class="nav-item d-flex align-items-center me-3">
                     <span class="me-2"><i class="fas fa-fire-extinguisher me-1"></i>Gaz:</span>
                     <span id="gasLevelBadge" class="badge bg-secondary">-</span>
@@ -66,17 +77,40 @@
                         <i class="fas fa-fan me-2"></i><span id="fanToggleText">Fanı Aç</span>
                     </button>
                 </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user me-1"></i>Kullanıcı
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="fas fa-user-cog me-2"></i>Profil</a></li>
-                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Settings"><i class="fas fa-cog me-2"></i>Ayarlar</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" asp-controller="Account" asp-action="Logout"><i class="fas fa-sign-out-alt me-2"></i>Çıkış</a></li>
-                    </ul>
-                </li>
+                @if (isSignedIn)
+                {
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>@(string.IsNullOrWhiteSpace(currentUser?.FirstName) ? "Hesabım" : currentUser!.FirstName)
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="fas fa-user-cog me-2"></i>Profil</a></li>
+                            <li><a class="dropdown-item" asp-controller="Account" asp-action="Settings"><i class="fas fa-cog me-2"></i>Ayarlar</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form asp-controller="Account" asp-action="Logout" method="post" class="px-3">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-link dropdown-item px-0">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Çıkış
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                }
+                else
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Account" asp-action="Login">
+                            <i class="fas fa-sign-in-alt me-1"></i>Giriş Yap
+                        </a>
+                    </li>
+                    <li class="nav-item ms-lg-2 mt-2 mt-lg-0">
+                        <a class="btn btn-sm btn-success" asp-controller="Account" asp-action="Register">
+                            <i class="fas fa-user-plus me-1"></i>Kayıt Ol
+                        </a>
+                    </li>
+                }
             </ul>
         </div>
     </div>

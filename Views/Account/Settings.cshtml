@@ -1,24 +1,103 @@
+@model AygazSmartEnergy.Models.AccountSettingsViewModel
 @{
     ViewData["Title"] = "Ayarlar";
 }
 
 <div class="container mt-3">
-    <h3 class="mb-3"><i class="fas fa-cog me-2"></i>Ayarlar</h3>
-    <div class="card">
-        <div class="card-body">
-            <p>Hesap ve uygulama ayarları için temel sayfa.</p>
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>Gaz eşiği (MQ-2)</span>
-                    <span class="text-muted">appsettings.json &gt; GasSettings:Mq2Threshold</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>Otomatik fan</span>
-                    <span class="text-muted">appsettings.json &gt; GasSettings:AutoFanEnabled</span>
-                </li>
-            </ul>
+    <h3 class="mb-3"><i class="fas fa-cog me-2"></i>Hesap Ayarları</h3>
+
+    @if (TempData["SettingsSaved"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>Ayarlarınız kaydedildi.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Kişisel Bilgiler</h5>
+                    <form asp-action="Settings" method="post">
+                        <input type="hidden" asp-for="UserId" />
+                        <div class="mb-3">
+                            <label asp-for="FirstName" class="form-label"></label>
+                            <input asp-for="FirstName" class="form-control" />
+                            <span class="text-danger" asp-validation-for="FirstName"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="LastName" class="form-label"></label>
+                            <input asp-for="LastName" class="form-control" />
+                            <span class="text-danger" asp-validation-for="LastName"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Email" class="form-label"></label>
+                            <input asp-for="Email" class="form-control" />
+                            <span class="text-danger" asp-validation-for="Email"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="PhoneNumber" class="form-label"></label>
+                            <input asp-for="PhoneNumber" class="form-control" />
+                            <span class="text-danger" asp-validation-for="PhoneNumber"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Address" class="form-label"></label>
+                            <textarea asp-for="Address" class="form-control" rows="3"></textarea>
+                            <span class="text-danger" asp-validation-for="Address"></span>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" asp-for="IsActive" />
+                            <label class="form-check-label" asp-for="IsActive">Hesap Aktif</label>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Son Giriş</label>
+                            <input class="form-control" value="@(Model.LastLoginAt?.ToString("g") ?? "Henüz giriş yapılmadı")" disabled />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Kaydet
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Sensör &amp; Otomasyon</h5>
+                    <p class="text-muted">
+                        Bu değerler sistem yapılandırmasından okunur. Değişiklik için yönetici ile iletişime geçin.
+                    </p>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-fire me-2 text-danger"></i>MQ-2 Gaz Eşiği</span>
+                            <span class="badge bg-secondary">@Model.GasThreshold.ToString("F1") ppm</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-fan me-2 text-primary"></i>Gaz için Otomatik Fan</span>
+                            <span class="badge @(Model.AutoFanEnabled ? "bg-success" : "bg-danger")">
+                                @(Model.AutoFanEnabled ? "Açık" : "Kapalı")
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-temperature-high me-2 text-warning"></i>Sıcaklık Eşiği</span>
+                            <span class="badge bg-secondary">@Model.TemperatureThreshold.ToString("F1") °C</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-fan me-2 text-warning"></i>Sıcaklık için Otomatik Fan</span>
+                            <span class="badge @(Model.TemperatureAutoFanEnabled ? "bg-success" : "bg-danger")">
+                                @(Model.TemperatureAutoFanEnabled ? "Açık" : "Kapalı")
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

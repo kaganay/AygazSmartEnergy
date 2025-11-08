@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using AygazSmartEnergy.Configuration;
 using AygazSmartEnergy.Data;
 using AygazSmartEnergy.Models;
+using AygazSmartEnergy.Services;
 
 namespace AygazSmartEnergy.Controllers
 {
@@ -9,10 +12,17 @@ namespace AygazSmartEnergy.Controllers
     public class EnergyApiController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMessageBus _messageBus;
+        private readonly RabbitMqOptions _rabbitOptions;
 
-        public EnergyApiController(AppDbContext context)
+        public EnergyApiController(
+            AppDbContext context,
+            IMessageBus messageBus,
+            IOptions<RabbitMqOptions> rabbitOptions)
         {
             _context = context;
+            _messageBus = messageBus;
+            _rabbitOptions = rabbitOptions.Value;
         }
 
         // ESP8266'dan veri almak için endpoint
@@ -25,6 +35,18 @@ namespace AygazSmartEnergy.Controllers
             data.RecordedAt = DateTime.Now;
             _context.EnergyConsumptions.Add(data);
             await _context.SaveChangesAsync();
+
+            _ = _messageBus.PublishAsync(
+                _rabbitOptions.SensorQueue ?? "sensor-data",
+                new
+                {
+                    data.Id,
+                    data.DeviceId,
+                    data.EnergyUsed,
+                    data.CostPerHour,
+                    data.CarbonFootprint,
+                    RecordedAt = data.RecordedAt
+                });
 
             return Ok(new { message = "Veri başarıyla kaydedildi" });
         }

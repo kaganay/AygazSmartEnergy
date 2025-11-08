@@ -1,114 +1,295 @@
+@using System.Globalization
+@using System.Linq
+@model AygazSmartEnergy.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
+    var defaultDeviceId = Model.Devices.FirstOrDefault()?.Id;
+    var displayName = User?.Identity?.IsAuthenticated == true
+        ? (User.Identity?.Name ?? "Aygaz Smart Energy")
+        : "Aygaz Smart Energy";
+    var initials = string.Join(string.Empty,
+        displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                   .Select(n => char.ToUpperInvariant(n[0]))
+                   .Take(2));
+    if (string.IsNullOrWhiteSpace(initials))
+    {
+        initials = "AS";
+    }
 }
-
-@model AygazSmartEnergy.Models.DashboardViewModel
 
 <div class="container-fluid">
     <h1 class="mt-4">Akıllı Enerji Yönetim Paneli</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item active">Dashboard</li>
-    </ol>
+    <nav aria-label="breadcrumb" class="mb-4">
+        <div class="btn-group" role="group" aria-label="Breadcrumb">
+            <span class="btn btn-primary active" aria-current="page">
+                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            </span>
+        </div>
+    </nav>
+
+    <div class="dashboard-hero">
+        <div class="hero-card hero-profile fade-in">
+            <div class="hero-profile__header">
+                <div class="hero-avatar">@initials</div>
+                <div class="hero-profile__meta">
+                    <span class="hero-profile__name">Enerji Yönetim Paneli</span>
+                    <span class="hero-profile__title">@displayName</span>
+                </div>
+            </div>
+            <div class="hero-profile__list">
+                <span><i class="fas fa-microchip text-primary"></i> Toplam Cihaz: <strong>@Model.TotalDevices</strong></span>
+                <span><i class="fas fa-check-circle text-success"></i> Aktif Cihaz: <strong>@Model.ActiveDevices</strong></span>
+                <span><i class="fas fa-bolt text-warning"></i> 24 Saat Enerji: <strong>@Model.TotalEnergyConsumed.ToString("F1") kWh</strong></span>
+            </div>
+        </div>
+        <div class="hero-card hero-banner fade-in">
+            <div class="hero-banner__content">
+                <span class="status-pill status-pill--success" style="width: max-content;"><i class="fas fa-satellite-dish"></i> Canlı İzleme</span>
+                <h2 class="hero-banner__title">Akıllı Enerji Yönetim Paneli</h2>
+                <p class="hero-banner__subtitle">
+                    Gerçek zamanlı sensör verileriyle tesisinizi güvenle yönetin, anomali ve tasarruf fırsatlarını tek ekrandan keşfedin.
+                </p>
+                <a class="hero-banner__cta" asp-controller="Dashboard" asp-action="Devices">
+                    Cihaz Envanterini Görüntüle <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        <div class="hero-card hero-meter fade-in">
+            <h3 class="hero-meter__title">Karbon Yoğunluğu</h3>
+            <div class="gauge" id="carbonGauge" data-value="@Model.CarbonIntensity.ToString("F3", CultureInfo.InvariantCulture)" data-max="0.8">
+                <div class="gauge__value">
+                    <strong>@Model.CarbonIntensity.ToString("F3")</strong>
+                    <span>kg CO₂ / kWh</span>
+                </div>
+            </div>
+            <div class="hero-meter__footer">
+                Güncelleme: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <a class="quick-action" asp-controller="Dashboard" asp-action="Devices">
+            <i class="fas fa-microchip"></i>
+            <span>Cihaz Yönetimi</span>
+            <small>Envanteri ve durumları incele</small>
+        </a>
+        <a class="quick-action" asp-controller="Dashboard" asp-action="Alerts">
+            <i class="fas fa-bell"></i>
+            <span>Uyarılar</span>
+            <small>Kritik bildirimleri takip et</small>
+        </a>
+        @if (defaultDeviceId.HasValue)
+        {
+            <a class="quick-action" asp-controller="Dashboard" asp-action="EnergyAnalysis" asp-route-deviceId="@defaultDeviceId">
+                <i class="fas fa-chart-line"></i>
+                <span>Enerji Analizi</span>
+                <small>Trendleri ve verimliliği analiz et</small>
+            </a>
+        }
+        else
+        {
+            <div class="quick-action quick-action--disabled">
+                <i class="fas fa-chart-line"></i>
+                <span>Enerji Analizi</span>
+                <small>Veri bekleniyor</small>
+            </div>
+        }
+        <a class="quick-action" asp-controller="Dashboard" asp-action="BillPrediction">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <span>Fatura Tahmini</span>
+            <small>Aylık maliyet öngörüsü</small>
+        </a>
+        <a class="quick-action" asp-controller="Account" asp-action="Profile">
+            <i class="fas fa-user-circle"></i>
+            <span>Profil</span>
+            <small>Hesap bilgilerini görüntüle</small>
+        </a>
+        <a class="quick-action" asp-controller="Account" asp-action="Settings">
+            <i class="fas fa-cog"></i>
+            <span>Ayarlar</span>
+            <small>Eşik değer ve iletişim bilgileri</small>
+        </a>
+    </div>
 
     <!-- Canlı Sensör Verileri -->
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-thermometer-half me-2"></i>Sıcaklık</h5>
-                    <h2 id="liveTemperature">-</h2>
-                    <small>°C</small>
+    <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-xl-4">
+        <div class="col">
+            <div class="metric-card metric-card--temperature fade-in">
+                <div class="metric-card__icon">
+                    <i class="fas fa-thermometer-half"></i>
+                </div>
+                <div class="metric-card__data">
+                    <p class="metric-card__title">Sıcaklık</p>
+                    <h2 class="metric-card__value">
+                        <span id="liveTemperature">-</span><small>°C</small>
+                    </h2>
+                    <p class="metric-card__hint">Canlı sensör verisi</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-bolt me-2"></i>Voltaj</h5>
-                    <h2 id="liveVoltage">-</h2>
-                    <small>V</small>
+        <div class="col">
+            <div class="metric-card metric-card--voltage fade-in">
+                <div class="metric-card__icon">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <div class="metric-card__data">
+                    <p class="metric-card__title">Voltaj</p>
+                    <h2 class="metric-card__value">
+                        <span id="liveVoltage">-</span><small>V</small>
+                    </h2>
+                    <p class="metric-card__hint">Şebeke sağlığı</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-fan me-2"></i>Fan Durumu</h5>
-                    <h2 id="liveFanStatus">-</h2>
-                    <small id="fanStatusText">Kapalı</small>
+        <div class="col">
+            <div class="metric-card metric-card--fan fade-in">
+                <div class="metric-card__icon">
+                    <i class="fas fa-fan"></i>
+                </div>
+                <div class="metric-card__data">
+                    <p class="metric-card__title">Fan Durumu</p>
+                    <h2 class="metric-card__value" id="liveFanStatus">-</h2>
+                    <p class="metric-card__hint" id="fanStatusText">Kapalı</p>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="metric-card metric-card--device fade-in">
+                <div class="metric-card__icon">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <div class="metric-card__data">
+                    <p class="metric-card__title">Cihaz Durumu</p>
+                    <h2 class="metric-card__value metric-card__value--compact" id="liveDeviceName">-</h2>
+                    <p class="metric-card__hint mb-2">ID: <span id="liveDeviceId">-</span></p>
+                    <span class="status-pill status-pill--muted" id="liveDeviceStatus">Bilinmiyor</span>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- İstatistik Kartları -->
-    <div class="row">
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-primary text-white mb-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <div class="small text-white-50">Toplam Cihaz</div>
-                            <div class="h4">@Model.TotalDevices</div>
-                        </div>
-                        <div><i class="fas fa-microchip fa-2x"></i></div>
+    <div class="row g-3 row-cols-1 row-cols-md-2 row-cols-xl-4 mt-1">
+        <div class="col">
+            <div class="summary-card fade-in">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="summary-card__icon summary-card__icon--blue">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div>
+                        <p class="summary-card__title">Toplam Cihaz</p>
+                        <h3 class="summary-card__value">@Model.TotalDevices</h3>
                     </div>
                 </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="Devices">Detayları Görüntüle</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                <div class="summary-card__footer">
+                    <a class="summary-card__action" asp-controller="Dashboard" asp-action="Devices">
+                        Detayları Görüntüle <i class="fas fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-success text-white mb-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <div class="small text-white-50">Aktif Cihaz</div>
-                            <div class="h4">@Model.ActiveDevices</div>
-                        </div>
-                        <div><i class="fas fa-check-circle fa-2x"></i></div>
+        <div class="col">
+            <div class="summary-card fade-in">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="summary-card__icon summary-card__icon--green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div>
+                        <p class="summary-card__title">Aktif Cihaz</p>
+                        <h3 class="summary-card__value">@Model.ActiveDevices</h3>
                     </div>
                 </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="Devices">Detayları Görüntüle</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                <div class="summary-card__footer">
+                    <a class="summary-card__action" asp-controller="Dashboard" asp-action="Devices">
+                        Aktif cihazları gör <i class="fas fa-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-warning text-white mb-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <div class="small text-white-50">Enerji Tüketimi (24h)</div>
-                            <div class="h4">@Model.TotalEnergyConsumed kWh</div>
-                        </div>
-                        <div><i class="fas fa-bolt fa-2x"></i></div>
+        <div class="col">
+            <div class="summary-card fade-in">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="summary-card__icon summary-card__icon--amber">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div>
+                        <p class="summary-card__title">Enerji Tüketimi (24h)</p>
+                        <h3 class="summary-card__value">@Model.TotalEnergyConsumed.ToString("F1")<small>kWh</small></h3>
                     </div>
                 </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="EnergyAnalysis">Detayları Görüntüle</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                <div class="summary-card__footer">
+                    @if (defaultDeviceId.HasValue)
+                    {
+                        <a class="summary-card__action" asp-controller="Dashboard" asp-action="EnergyAnalysis" asp-route-deviceId="@defaultDeviceId">
+                            Analizi aç <i class="fas fa-arrow-right"></i>
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="summary-card__muted">
+                            <i class="fas fa-hourglass-half"></i>Cihaz verisi bekleniyor
+                        </span>
+                    }
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-danger text-white mb-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <div>
-                            <div class="small text-white-50">Maliyet (24h)</div>
-                            <div class="h4">@Model.TotalCost.ToString("C2")</div>
-                        </div>
-                        <div><i class="fas fa-lira-sign fa-2x"></i></div>
+        <div class="col">
+            <div class="summary-card fade-in">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="summary-card__icon summary-card__icon--red">
+                        <i class="fas fa-lira-sign"></i>
+                    </div>
+                    <div>
+                        <p class="summary-card__title">Maliyet (24h)</p>
+                        <h3 class="summary-card__value">@Model.TotalCost.ToString("C2")</h3>
                     </div>
                 </div>
-                <div class="card-footer d-flex align-items-center justify-content-between">
-                    <a class="small text-white stretched-link" asp-controller="Dashboard" asp-action="BillPrediction">Detayları Görüntüle</a>
-                    <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                <div class="summary-card__footer">
+                    <a class="summary-card__action" asp-controller="Dashboard" asp-action="BillPrediction">
+                        Tahmini faturayı gör <i class="fas fa-arrow-right"></i>
+                    </a>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sürdürülebilirlik Göstergeleri -->
+    <div class="row g-3 mb-4" id="surdurulebilirlik">
+        <div class="col-xl-4 col-md-6">
+            <div class="insight-card insight-card--green fade-in h-100">
+                <div class="insight-card__title">
+                    <i class="fas fa-leaf"></i>Karbon Ayak İzi (24h)
+                </div>
+                <p class="insight-card__value">
+                    @Model.TotalCarbonFootprint.ToString("F2") <span>kg CO₂</span>
+                </p>
+                <p class="insight-card__hint">Enerji tüketimine göre hesaplanmıştır.</p>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="insight-card insight-card--blue fade-in h-100">
+                <div class="insight-card__title">
+                    <i class="fas fa-industry"></i>Karbon Yoğunluğu
+                </div>
+                <p class="insight-card__value">
+                    @Model.CarbonIntensity.ToString("F3") <span>kg CO₂ / kWh</span>
+                </p>
+                <p class="insight-card__hint">
+                    Sektör ortalamasına göre <span class="fw-semibold">@(Model.CarbonIntensity < 0.45 ? "iyi" : "iyileştirilebilir")</span>.
+                </p>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="insight-card insight-card--amber fade-in h-100">
+                <div class="insight-card__title">
+                    <i class="fas fa-piggy-bank"></i>Tasarruf Potansiyeli
+                </div>
+                <p class="insight-card__value">
+                    @Model.PotentialCostSavings.ToString("C2")
+                </p>
+                <p class="insight-card__hint mb-1">Enerji: @Model.PotentialEnergySavings.ToString("F1") kWh / Ay</p>
+                <p class="insight-card__hint">%15 verimlilik iyileştirmesi hedeflenmektedir.</p>
             </div>
         </div>
     </div>
@@ -116,7 +297,7 @@
     <!-- Grafikler -->
     <div class="row">
         <div class="col-xl-8">
-            <div class="card mb-4">
+            <div class="card panel-card mb-4">
                 <div class="card-header">
                     <i class="fas fa-chart-area me-1"></i>
                     Enerji Tüketim Grafiği (Son 24 Saat)
@@ -127,7 +308,7 @@
             </div>
         </div>
         <div class="col-xl-4">
-            <div class="card mb-4">
+            <div class="card panel-card mb-4">
                 <div class="card-header">
                     <i class="fas fa-chart-pie me-1"></i>
                     Cihaz Dağılımı
@@ -140,7 +321,7 @@
     </div>
 
     <!-- Cihaz Tablosu -->
-    <div class="card mb-4">
+    <div class="card panel-card mb-4">
         <div class="card-header">
             <i class="fas fa-table me-1"></i>
             Cihaz Durumu
@@ -166,7 +347,7 @@
                                 <td>@device.Location</td>
                                 <td>@(device.EnergyConsumptions.FirstOrDefault()?.EnergyUsed.ToString("F2") ?? "N/A") kWh</td>
                                 <td>
-                                    <span class="badge @(device.IsActive ? "bg-success" : "bg-danger")">
+                                    <span class="status-pill @(device.IsActive ? "status-pill--success" : "status-pill--danger")">
                                         @(device.IsActive ? "Aktif" : "Pasif")
                                     </span>
                                 </td>
@@ -183,7 +364,7 @@
     </div>
 
     <!-- Uyarılar -->
-    <div class="card mb-4">
+    <div class="card panel-card mb-4">
         <div class="card-header">
             <i class="fas fa-bell me-1"></i>
             Son Uyarılar
@@ -285,48 +466,45 @@
             }
         });
 
+        // DOM referansları
+        const temperatureEl = document.getElementById('liveTemperature');
+        const voltageEl = document.getElementById('liveVoltage');
+        const fanStatusEl = document.getElementById('liveFanStatus');
+        const fanStatusTextEl = document.getElementById('fanStatusText');
+        const carbonGaugeEl = document.getElementById('carbonGauge');
+
+        if (carbonGaugeEl) {
+            const value = parseFloat(carbonGaugeEl.dataset.value || '0');
+            const max = parseFloat(carbonGaugeEl.dataset.max || '1');
+            const percent = Math.max(0, Math.min(1, value / max));
+            const angle = percent * 360;
+            carbonGaugeEl.style.setProperty('--angle', `${angle}deg`);
+        }
+
         // SignalR bağlantısı
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/energyHub")
             .build();
 
         connection.on("ReceiveSensorData", (sensorData) => {
-            console.log("Yeni sensör verisi:", sensorData);
-            // Dashboard'u güncelle
-            location.reload();
-        });
-
-        connection.on("ReceiveAlert", (alert) => {
-            console.log("Yeni uyarı:", alert);
-            // Uyarıları güncelle
-            location.reload();
-        });
-
-        // Canlı sensör verilerini dinle
-        connection.on("ReceiveSensorData", (sensorData) => {
-            console.log("Canlı sensör verisi:", sensorData);
-            
-            // Sıcaklık güncelle
-            if (sensorData.temperature && sensorData.temperature > 0) {
-                document.getElementById('liveTemperature').textContent = sensorData.temperature.toFixed(1);
+            if (!sensorData) return;
+            if (sensorData.temperature && sensorData.temperature > 0 && temperatureEl) {
+                temperatureEl.textContent = sensorData.temperature.toFixed(1);
             }
-            
-            // Voltaj güncelle
-            if (sensorData.voltage && sensorData.voltage > 0) {
-                document.getElementById('liveVoltage').textContent = sensorData.voltage.toFixed(2);
+            if (sensorData.voltage && sensorData.voltage > 0 && voltageEl) {
+                voltageEl.textContent = sensorData.voltage.toFixed(2);
             }
         });
 
-        // Fan durumunu dinle
+        connection.on("ReceiveAlert", () => {
+            // TODO: Alert tablosunu canlı güncelle
+        });
+
         connection.on("ReceiveFanStatus", (fanStatus) => {
-            console.log("Fan durumu:", fanStatus);
-            const fanStatusEl = document.getElementById('liveFanStatus');
-            const fanStatusTextEl = document.getElementById('fanStatusText');
-            
-            if (fanStatusEl && fanStatusTextEl) {
-                fanStatusEl.textContent = fanStatus.isOn ? 'AÇIK' : 'KAPALI';
-                fanStatusTextEl.textContent = fanStatus.isOn ? 'Çalışıyor' : 'Kapalı';
-            }
+            if (!fanStatus || !fanStatusEl || !fanStatusTextEl) return;
+            const isOn = !!fanStatus.isOn;
+            fanStatusEl.textContent = isOn ? 'AÇIK' : 'KAPALI';
+            fanStatusTextEl.textContent = isOn ? 'Çalışıyor' : 'Kapalı';
         });
 
         // İlk yüklemede fan durumunu al
@@ -349,14 +527,41 @@
             .then(d => {
                 if (d && d.success && d.data && d.data.length > 0) {
                     const sensor = d.data[0];
-                    if (sensor.temperature && sensor.temperature > 0) {
-                        document.getElementById('liveTemperature').textContent = sensor.temperature.toFixed(1);
+                    if (sensor.temperature && sensor.temperature > 0 && temperatureEl) {
+                        temperatureEl.textContent = sensor.temperature.toFixed(1);
                     }
-                    if (sensor.voltage && sensor.voltage > 0) {
-                        document.getElementById('liveVoltage').textContent = sensor.voltage.toFixed(2);
+                    if (sensor.voltage && sensor.voltage > 0 && voltageEl) {
+                        voltageEl.textContent = sensor.voltage.toFixed(2);
                     }
                 }
             }).catch(() => {});
+
+        // Cihaz durumunu güncelle
+        fetch('/api/device/status')
+            .then(r => r.json())
+            .then(d => {
+                if (!d) return;
+                const nameEl = document.getElementById('liveDeviceName');
+                const idEl = document.getElementById('liveDeviceId');
+                const statusEl = document.getElementById('liveDeviceStatus');
+
+                if (nameEl) nameEl.textContent = d.deviceName ?? d.DeviceName ?? '-';
+                if (idEl) idEl.textContent = (d.deviceId ?? d.DeviceId ?? '-').toString();
+
+                const status = (d.status ?? d.Status ?? '').toString();
+                if (statusEl) {
+                    const normalized = status.toLowerCase();
+                    let badgeClass = 'status-pill status-pill--muted';
+                    if (normalized === 'active') {
+                        badgeClass = 'status-pill status-pill--success';
+                    } else if (['offline', 'inactive', 'error'].includes(normalized)) {
+                        badgeClass = 'status-pill status-pill--danger';
+                    }
+                    statusEl.textContent = status || 'Bilinmiyor';
+                    statusEl.className = badgeClass;
+                }
+            })
+            .catch(() => {});
 
         connection.start().catch(err => console.error(err.toString()));
     </script>

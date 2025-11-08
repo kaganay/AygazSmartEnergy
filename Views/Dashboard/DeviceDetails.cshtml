@@ -1,0 +1,160 @@
+@using System.Linq
+@model AygazSmartEnergy.Models.DeviceDetailsViewModel
+@{
+    ViewData["Title"] = "Cihaz Detayı";
+    var device = Model.Device;
+    var latestConsumption = device.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).FirstOrDefault();
+    var latestSensor = device.SensorDatas?.OrderByDescending(s => s.RecordedAt).FirstOrDefault();
+    var isOnline = latestSensor != null && latestSensor.RecordedAt >= DateTime.Now.AddMinutes(-10);
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-microchip me-2"></i>@device.DeviceName</h2>
+            <small class="text-muted">Seri No: @(string.IsNullOrWhiteSpace(device.SerialNumber) ? "Tanımsız" : device.SerialNumber)</small>
+        </div>
+        <a asp-controller="Dashboard" asp-action="Devices" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Cihaz listesine dön
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Durum</h6>
+                    <div class="d-flex align-items-center flex-wrap">
+                        <span class="badge @(device.IsActive ? "bg-success" : "bg-danger") me-2 mb-1">
+                            @(device.IsActive ? "Aktif" : "Pasif")
+                        </span>
+                        <span class="badge @(isOnline ? "bg-success" : "bg-secondary") mb-1">
+                            @(isOnline ? "Online" : "Offline")
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Son Enerji Kullanımı</h6>
+                    <div class="display-6 fw-bold">
+                        @(latestConsumption?.EnergyUsed.ToString("F2") ?? "0") <small class="text-muted fs-6">kWh</small>
+                    </div>
+                    <small class="text-muted">@(latestConsumption?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Anlık Sıcaklık</h6>
+                    <div class="display-6 fw-bold">
+                        @(latestSensor != null ? latestSensor.Temperature.ToString("F1") : "-") <small class="text-muted fs-6">°C</small>
+                    </div>
+                    <small class="text-muted">@(latestSensor?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Anlık Voltaj</h6>
+                    <div class="display-6 fw-bold">
+                        @(latestSensor != null ? latestSensor.Voltage.ToString("F2") : "-") <small class="text-muted fs-6">V</small>
+                    </div>
+                    <small class="text-muted">@(latestSensor?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <i class="fas fa-bolt me-2 text-warning"></i>Enerji Tüketimi (Son 30 kayıt)
+                </div>
+                <div class="card-body">
+                    @if (device.EnergyConsumptions.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Enerji (kWh)</th>
+                                        <th>Maliyet (₺)</th>
+                                        <th>Karbon (kg CO₂)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in device.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).Take(30))
+                                    {
+                                        <tr>
+                                            <td>@item.RecordedAt.ToString("g")</td>
+                                            <td>@item.EnergyUsed.ToString("F2")</td>
+                                            <td>@item.CostPerHour.ToString("F2")</td>
+                                            <td>@item.CarbonFootprint.ToString("F3")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <p>Bu cihaz için henüz enerji verisi bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <i class="fas fa-wave-square me-2 text-info"></i>Sensör Verileri
+                </div>
+                <div class="card-body">
+                    @if (device.SensorDatas != null && device.SensorDatas.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Zaman</th>
+                                        <th>Sıcaklık (°C)</th>
+                                        <th>Voltaj (V)</th>
+                                        <th>Akım (A)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var sensor in device.SensorDatas.OrderByDescending(s => s.RecordedAt).Take(30))
+                                    {
+                                        <tr>
+                                            <td>@sensor.RecordedAt.ToString("g")</td>
+                                        <td>@(sensor.Temperature > 0 ? sensor.Temperature.ToString("F1") : "-")</td>
+                                        <td>@(sensor.Voltage > 0 ? sensor.Voltage.ToString("F2") : "-")</td>
+                                        <td>@(sensor.Current > 0 ? sensor.Current.ToString("F2") : "-")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <p>Bu cihaz için sensör verisi bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

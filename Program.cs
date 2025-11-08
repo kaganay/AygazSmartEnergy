@@ -1,3 +1,4 @@
+using AygazSmartEnergy.Configuration;
 using AygazSmartEnergy.Data;
 using AygazSmartEnergy.Models;
 using AygazSmartEnergy.Services;   // Servis arayüzleri (IEnergyAnalysisService vb.)
@@ -5,6 +6,7 @@ using AygazSmartEnergy.Hubs;       // SignalR için EnergyHub sınıfı
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using System.Text.Json.Serialization;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +41,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // 🔹 SignalR (Gerçek zamanlı veri için)
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+}).AddStackExchangeRedis(builder.Configuration.GetConnectionString("RedisConnection") ?? "localhost:6379", options =>
+{
+    options.Configuration.ChannelPrefix = new RedisChannel("AygazSmartEnergy", RedisChannel.PatternMode.Auto);
+});
 
 // 🔹 Servis kayıtları (Controller’lar tarafından kullanılacak)
 builder.Services.AddScoped<IEnergyAnalysisService, EnergyAnalysisService>();
@@ -47,6 +55,8 @@ builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAIMLService, AIMLService>();
 builder.Services.AddHttpClient<IAIMLService, AIMLService>();
 builder.Services.AddScoped<IDeviceControlService, DeviceControlService>();
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+builder.Services.AddSingleton<IMessageBus, RabbitMqMessageBus>();
 
 // 🔹 CORS (IoT cihazlarının API’ye bağlanabilmesi için)
 builder.Services.AddCors(options =>

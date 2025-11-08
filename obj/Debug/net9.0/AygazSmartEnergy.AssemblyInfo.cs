@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AygazSmartEnergy")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+003f1d985530cd4339c948022b1300c83ee28132")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8a7fecfa1d58ae0612790b7c5884160bc7f40a66")]
 [assembly: System.Reflection.AssemblyProductAttribute("AygazSmartEnergy")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AygazSmartEnergy")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

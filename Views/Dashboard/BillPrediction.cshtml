@@ -1,0 +1,122 @@
+@using System.Linq
+@model AygazSmartEnergy.Models.BillingSummaryViewModel
+@{
+    ViewData["Title"] = "Fatura Tahmini";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-receipt me-2"></i>Fatura Tahmini</h2>
+            <small class="text-muted">Son 24 saatlik tüketim temel alınarak hesaplandı.</small>
+        </div>
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Dashboard'a dön
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Günlük Enerji</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.DailyEnergy.ToString("F2") <small class="text-muted fs-6">kWh</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Günlük Maliyet</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.DailyCost.ToString("C2")
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Tahmini Aylık Enerji</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.EstimatedMonthlyEnergy.ToString("F2") <small class="text-muted fs-6">kWh</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Tahmini Aylık Maliyet</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.EstimatedMonthlyCost.ToString("C2")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm" id="tasarruf">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-lightbulb-dollar me-2 text-warning"></i>Tasarruf Potansiyeli</span>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Güncel tüketiminize göre aylık faturanız yaklaşık olarak
+                        <strong>@Model.EstimatedMonthlyCost.ToString("C2")</strong> olacaktır.
+                        Enerji verimliliği iyileştirmeleri ile yaklaşık
+                        <strong>@Model.PotentialMonthlySavings.ToString("C2")</strong> tasarruf edebilirsiniz.
+                    </p>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong>%5</strong> yük düşüşü →
+                            <span class="text-success">@((Model.EstimatedMonthlyCost * 0.05).ToString("C2")) tasarruf</span>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>%10</strong> yük düşüşü →
+                            <span class="text-success">@((Model.EstimatedMonthlyCost * 0.10).ToString("C2")) tasarruf</span>
+                        </li>
+                        <li class="list-group-item">
+                            <strong>%15</strong> yük düşüşü →
+                            <span class="text-success">@((Model.EstimatedMonthlyCost * 0.15).ToString("C2")) tasarruf</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <i class="fas fa-fire me-2 text-danger"></i>Tüketimi Yüksek Cihazlar
+                </div>
+                <div class="card-body">
+                    @if (Model.TopConsumers != null && Model.TopConsumers.Count > 0)
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var device in Model.TopConsumers)
+                            {
+                                var last = device.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).FirstOrDefault();
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>@device.DeviceName</span>
+                                    <span class="badge bg-secondary">@((last?.EnergyUsed ?? 0).ToString("F2")) kWh</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-info-circle fa-2x mb-2"></i>
+                            <p>Henüz cihaz bazlı tüketim verisi bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

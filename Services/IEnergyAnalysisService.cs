@@ -76,3 +76,4 @@ namespace AygazSmartEnergy.Services
         public List<string> Steps { get; set; } = new List<string>();
     }
 }
+

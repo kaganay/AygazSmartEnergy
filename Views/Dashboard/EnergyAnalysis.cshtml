@@ -1,0 +1,191 @@
+@using System.Linq
+@model AygazSmartEnergy.Models.EnergyAnalysisViewModel
+@{
+    ViewData["Title"] = "Enerji Analizi";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0"><i class="fas fa-chart-area me-2"></i>@Model.Device.DeviceName Enerji Analizi</h2>
+            <small class="text-muted">@Model.AnalysisPeriod günlük değerlendirme</small>
+        </div>
+        <a asp-controller="Dashboard" asp-action="Devices" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Cihaz listesine dön
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Toplam Enerji</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.Summary.TotalEnergyUsed.ToString("F2") <small class="text-muted fs-6">kWh</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Ortalama Günlük</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.Summary.AverageDailyConsumption.ToString("F2") <small class="text-muted fs-6">kWh</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Tahmini Fatura</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.EstimatedMonthlyBill.ToString("C2")
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase">Karbon Ayak İzi</h6>
+                    <div class="display-6 fw-bold">
+                        @Model.CarbonFootprint.ToString("F2") <small class="text-muted fs-6">kg CO₂</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <i class="fas fa-chart-line me-2 text-primary"></i>Tüketim Trendleri
+                </div>
+                <div class="card-body">
+                    @if (Model.Trends.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Tarih</th>
+                                        <th>Enerji (kWh)</th>
+                                        <th>Maliyet (₺)</th>
+                                        <th>Karbon (kg CO₂)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var trend in Model.Trends.OrderByDescending(t => t.Date))
+                                    {
+                                        <tr>
+                                            <td>@trend.Date.ToString("d")</td>
+                                            <td>@trend.EnergyUsed.ToString("F2")</td>
+                                            <td>@trend.Cost.ToString("F2")</td>
+                                            <td>@trend.CarbonFootprint.ToString("F3")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                            <p>Henüz analiz edilecek enerji trendi bulunmuyor.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <i class="fas fa-search me-2 text-danger"></i>Anomali Kayıtları
+                </div>
+                <div class="card-body">
+                    @if (Model.Anomalies.Any())
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var anomaly in Model.Anomalies.OrderByDescending(a => a.DetectedAt))
+                            {
+                                <li class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>@anomaly.AnomalyType</strong>
+                                            <p class="mb-1 text-muted">@anomaly.Description</p>
+                                        </div>
+                                        <span class="badge bg-danger">@anomaly.Severity.ToString("F1")</span>
+                                    </div>
+                                    <small class="text-muted">@anomaly.DetectedAt.ToString("g")</small>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                            <p>Son dönemde herhangi bir anormallik tespit edilmedi.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <i class="fas fa-tachometer-alt me-2 text-success"></i>Verimlilik Raporu
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-6">Ortalama</dt>
+                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.AverageEfficiency.ToString("F1")%</dd>
+
+                        <dt class="col-sm-6">En iyi</dt>
+                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.PeakEfficiency.ToString("F1")%</dd>
+
+                        <dt class="col-sm-6">En düşük</dt>
+                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.LowEfficiency.ToString("F1")%</dd>
+                    </dl>
+                    <div class="text-center mt-3">
+                        <span class="badge bg-primary px-3 py-2">
+                            Verimlilik Sınıfı: @(string.IsNullOrWhiteSpace(Model.EfficiencyReport.EfficiencyGrade) ? "Belirlenmedi" : Model.EfficiencyReport.EfficiencyGrade)
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <i class="fas fa-lightbulb me-2 text-warning"></i>Tasarruf Önerileri
+                </div>
+                <div class="card-body">
+                    @if (Model.Recommendations.Actions.Any())
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var action in Model.Recommendations.Actions)
+                            {
+                                <li class="list-group-item">
+                                    <strong>@action.ActionName</strong>
+                                    <p class="mb-1 text-muted">@action.Description</p>
+                                    <small class="text-muted">Potansiyel kazanç: @action.PotentialSavings.ToString("C2")</small>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-lightbulb fa-2x mb-2"></i>
+                            <p>İyileştirme önerisi bulunmuyor. Enerji veriniz arttıkça öneriler burada görünecek.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
