@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
+// Enerji izleme cihazı: kimlik, konum, sınırlar ve ilişkiler.
 namespace AygazSmartEnergy.Models
 {
     public class Device
@@ -34,7 +35,7 @@ namespace AygazSmartEnergy.Models
         public double MinPowerConsumption { get; set; } // Watts
 
         public bool IsActive { get; set; } = true;
-        public DateTime InstalledAt { get; set; } = DateTime.Now;
+        public DateTime InstalledAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastMaintenanceAt { get; set; }
 
         // Foreign Keys

@@ -1,32 +1,26 @@
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
 
-// Pin Tanımlamaları
-#define DHTPIN D1        // DHT22 Data Pini
-#define LED_PIN D5       // LED'in bağlı olduğu Pin
-#define FAN_PIN D6       // Fan Rölesinin bağlı olduğu Pin
-#define VOLTAGE_SENSOR_PIN A0 // Voltaj Sensörünün bağlı olduğu Analog Pin
+// Pinler
+#define DHTPIN D1
+#define LED_PIN D5
+#define FAN_PIN D6
+#define VOLTAGE_SENSOR_PIN A0
 
-// DHT Sensör Tipi
-#define DHTTYPE DHT22    // DHT 22 (AM2302)
+#define DHTTYPE DHT22
 
-// Eşik Değeri
-const float SICAKLIK_ESIGI = 27.0; // Santigrat derece (°C)
+const float SICAKLIK_ESIGI = 27.0;
+const float VOLTAGE_DIVIDER_RATIO = 4.53;
+const float ADC_REF_VOLTAGE = 3.3;
 
-// Voltaj Sensörü Kalibrasyonu
-const float VOLTAGE_DIVIDER_RATIO = 4.53; // Voltaj Bölücü Oranı
-const float ADC_REF_VOLTAGE = 3.3; // ESP8266 3.3V ile çalışır
-
-// WiFi Ayarları - BURAYA KENDİ AĞ BİLGİLERİNİZİ GİRİN
+// WiFi - kendi ağ bilgilerinizi girin
 const char* ssid = "min.";
 const char* password = "12345678";
 
-// Sunucu Bilgileri - Bilgisayarınızın IP adresi
-// ESP8266 IP: 10.65.71.53
-// Sunucu IP: 10.65.71.254
 const char* serverUrl = "http://10.65.71.254:5152";
 
 DHT dht(DHTPIN, DHTTYPE);
@@ -43,19 +37,15 @@ void setup() {
   
   Serial.println("ESP8266 Kontrol Sistemi Baslatiliyor...");
 
-  // Pinleri Çıkış olarak ayarla
   pinMode(LED_PIN, OUTPUT);
   pinMode(FAN_PIN, OUTPUT);
 
-  // Başlangıçta LED ve Fan Kapalı
   digitalWrite(LED_PIN, LOW);
   digitalWrite(FAN_PIN, LOW);
   fanState = false;
 
-  // DHT Sensörünü Başlat
   dht.begin();
 
-  // WiFi Bağlantısı
   WiFi.begin(ssid, password);
   Serial.print("WiFi'ye baglaniyor");
   
@@ -88,45 +78,36 @@ void setup() {
 }
 
 void loop() {
-  delay(2000); // Her 2 saniyede bir okuma yap
+  delay(2000);
 
-  // 1. DHT22 Sıcaklık Okuması
-  float sicaklik = dht.readTemperature(); // Santigrat (Celsius) cinsinden oku
+  float sicaklik = dht.readTemperature();
 
-  // Okuma hatası kontrolü
   if (isnan(sicaklik)) {
     Serial.println("DHT sensöründen okuma hatasi!");
     return;
   }
 
-  // 2. Voltaj Sensörü Okuması
-  int adc_degeri = analogRead(VOLTAGE_SENSOR_PIN); // 0-1023
-  
-  // Analog değeri gerçek voltaja dönüştür
+  int adc_degeri = analogRead(VOLTAGE_SENSOR_PIN);
   float voltaj = ((float)adc_degeri / 1024.0) * ADC_REF_VOLTAGE * VOLTAGE_DIVIDER_RATIO;
 
-  // 3. Sıcaklık Kontrolü ve Aktüatör Çalıştırma (sadece manuel kontrol yoksa)
   if (!fanManualControl) {
     if (sicaklik > SICAKLIK_ESIGI) {
-      // Sıcaklık eşiği aşıldı
       if (!fanState) {
-        digitalWrite(LED_PIN, HIGH); // LED'i Yak
-        digitalWrite(FAN_PIN, HIGH); // Fanı Çalıştır (Röleyi Çek)
+        digitalWrite(LED_PIN, HIGH);
+        digitalWrite(FAN_PIN, HIGH);
         fanState = true;
         Serial.println(">>> SICAKLIK ESIGI ASILDI! LED ve FAN ACILDI.");
       }
     } else {
-      // Sıcaklık eşiği altında
       if (fanState) {
-        digitalWrite(LED_PIN, LOW);  // LED'i Söndür
-        digitalWrite(FAN_PIN, LOW);  // Fanı Kapat (Röleyi Bırak)
+        digitalWrite(LED_PIN, LOW);
+        digitalWrite(FAN_PIN, LOW);
         fanState = false;
         Serial.println(">>> SICAKLIK NORMAL. LED ve FAN KAPATILDI.");
       }
     }
   }
 
-  // 4. Seriye Veri Yazdırma
   Serial.print("Sicaklik: ");
   Serial.print(sicaklik);
   Serial.print(" °C | Voltaj Okumasi (ADC): ");
@@ -136,9 +117,7 @@ void loop() {
   Serial.print(" V | Fan: ");
   Serial.println(fanState ? "ACIK" : "KAPALI");
 
-  // 5. Sunucuya Veri Gönderme
   if (WiFi.status() == WL_CONNECTED) {
-    // Sunucu erişilebilirlik kontrolü
     unsigned long currentTime = millis();
     if (currentTime - lastServerCheck > SERVER_CHECK_INTERVAL || lastServerCheck == 0) {
       Serial.println("Sunucu erisilebilirlik kontrolu yapiliyor...");
@@ -147,16 +126,14 @@ void loop() {
     
     sendSensorDataToServer(sicaklik, voltaj, adc_degeri, fanState);
     
-    // Fan durumunu sunucudan kontrol et (manuel kontrol için) - sadece her 5. döngüde
     static int loopCount = 0;
     loopCount++;
-    if (loopCount >= 5) { // Her 10 saniyede bir kontrol et (2 saniye * 5 = 10 saniye)
+    if (loopCount >= 5) {
       checkFanCommandFromServer();
       loopCount = 0;
     }
   } else {
     Serial.println("UYARI: WiFi baglantisi yok!");
-    // WiFi bağlantısını yeniden dene
     WiFi.begin(ssid, password);
     int reconnectAttempts = 0;
     while (WiFi.status() != WL_CONNECTED && reconnectAttempts < 10) {
@@ -178,14 +155,12 @@ void sendSensorDataToServer(float temperature, float voltage, int adcValue, bool
 
   String url = String(serverUrl) + "/api/IoT/sensor-data";
   
-  // Timeout ayarları - donmayı önlemek için
-  client.setTimeout(5000); // 5 saniye timeout
+  client.setTimeout(5000);
   http.begin(client, url);
-  http.setTimeout(5000); // 5 saniye timeout
+  http.setTimeout(5000);
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("Connection", "close"); // Her istekten sonra bağlantıyı kapat
+  http.addHeader("Connection", "close");
 
-  // JSON oluştur
   StaticJsonDocument<512> doc;
   doc["sensorName"] = "ESP8266_DHT22_Sensor";
   doc["sensorType"] = "Temperature";
@@ -242,7 +217,6 @@ void sendSensorDataToServer(float temperature, float voltage, int adcValue, bool
     Serial.print("HTTP hatasi! Hata kodu: ");
     Serial.println(httpResponseCode);
     
-    // Hata kodlarına göre mesaj göster
     if (httpResponseCode == -1) {
       Serial.println("HATA: Sunucuya baglanilamadi! (Timeout veya ag hatasi)");
       Serial.println("Kontrol edin:");
@@ -300,7 +274,6 @@ void checkFanCommandFromServer() {
       }
     }
   } else {
-    // Hata durumunda sessizce geç (fan kontrolü için kritik değil)
     Serial.print("Fan kontrol sorgusu basarisiz (kod: ");
     Serial.print(httpResponseCode);
     Serial.println(")");

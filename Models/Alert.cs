@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
+// Uyarı kaydı: tip/severity, zaman damgaları, kullanıcı/cihaz ilişkisi.
 namespace AygazSmartEnergy.Models
 {
     public class Alert
@@ -23,7 +24,7 @@ namespace AygazSmartEnergy.Models
         public string Severity { get; set; } = string.Empty; // Low, Medium, High, Critical
 
         [Required]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? ReadAt { get; set; }
         public DateTime? ResolvedAt { get; set; }
@@ -57,7 +58,7 @@ namespace AygazSmartEnergy.Models
         public string NotificationType { get; set; } = string.Empty; // Email, SMS, Push, InApp
 
         [Required]
-        public DateTime SentAt { get; set; } = DateTime.Now;
+        public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
         public bool IsDelivered { get; set; } = false;
         public DateTime? DeliveredAt { get; set; }

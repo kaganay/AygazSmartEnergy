@@ -5,6 +5,7 @@ using AygazSmartEnergy.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using System.Text.Json;
 
+// Alert üretir, kaydeder; SignalR ile realtime bildirim gönderir.
 namespace AygazSmartEnergy.Services
 {
     public class AlertService : IAlertService
@@ -37,6 +38,12 @@ namespace AygazSmartEnergy.Services
 
                 _context.Alerts.Add(alert);
                 await _context.SaveChangesAsync();
+
+                // Device bilgisini yükle (SignalR mesajı için)
+                if (alert.DeviceId.HasValue)
+                {
+                    alert.Device = await _context.Devices.FindAsync(alert.DeviceId.Value);
+                }
 
                 // SignalR ile gerçek zamanlı bildirim gönder
                 await _hubContext.NotifyAlertCreated(alert);
@@ -158,23 +165,43 @@ namespace AygazSmartEnergy.Services
             }
         }
 
+        /// <summary>
+        /// Yeni gelen veriler için alert kontrolleri yapar
+        /// NOT: Sadece son 5 dakikadaki YENİ veriler kontrol edilir
+        /// Bu metod yeni veri geldiğinde IoTController tarafından çağrılır
+        /// </summary>
         public async Task CheckAndCreateAlertsAsync()
         {
             try
             {
-                // Yüksek enerji tüketimi kontrolü
+                // Son 5 dakikada yeni veri var mı kontrol et
+                var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
+                var hasRecentData = await _context.EnergyConsumptions
+                    .AsNoTracking()
+                    .AnyAsync(e => e.RecordedAt >= fiveMinutesAgo && e.RecordedAt <= DateTime.UtcNow);
+
+                // Eğer son 5 dakikada yeni veri yoksa, hiçbir kontrol yapma (veri üretimi durmuş)
+                if (!hasRecentData)
+                {
+                    _logger.LogDebug("Son 5 dakikada yeni veri yok, alert kontrolleri atlandı");
+                    return;
+                }
+
+                _logger.LogDebug("Yeni veri tespit edildi, alert kontrolleri başlatılıyor...");
+
+                // Yüksek enerji tüketimi kontrolü (sadece yeni veriler)
                 await CheckHighEnergyConsumptionAlertsAsync();
 
-                // Sıcaklık anomali kontrolü
+                // Sıcaklık anomali kontrolü (sadece yeni veriler)
                 await CheckTemperatureAnomalyAlertsAsync();
 
-                // Cihaz durumu kontrolü
+                // Cihaz durumu kontrolü (24 saatlik kontrol - bu farklı)
                 await CheckDeviceStatusAlertsAsync();
 
-                // Güç faktörü kontrolü
+                // Güç faktörü kontrolü (sadece yeni veriler)
                 await CheckPowerFactorAlertsAsync();
 
-                // Voltaj anomali kontrolü
+                // Voltaj anomali kontrolü (sadece yeni veriler)
                 await CheckVoltageAnomalyAlertsAsync();
             }
             catch (Exception ex)
@@ -229,12 +256,20 @@ namespace AygazSmartEnergy.Services
         {
             try
             {
-                // Son 1 saatteki verileri kontrol et
-                var oneHourAgo = DateTime.Now.AddHours(-1);
+                // Son 5 dakikadaki YENİ verileri kontrol et (eski veriler için alert oluşturma)
+                var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
                 var recentConsumptions = await _context.EnergyConsumptions
-                    .Where(e => e.RecordedAt >= oneHourAgo)
+                    .Where(e => e.RecordedAt >= fiveMinutesAgo && e.RecordedAt <= DateTime.UtcNow)
                     .Include(e => e.Device)
+                    .AsNoTracking()
                     .ToListAsync();
+
+                // Eğer son 5 dakikada veri yoksa, alert oluşturma (veri üretimi durmuş)
+                if (!recentConsumptions.Any())
+                {
+                    _logger.LogDebug("Son 5 dakikada yeni veri yok, yüksek tüketim kontrolü atlandı");
+                    return;
+                }
 
                 foreach (var consumption in recentConsumptions)
                 {
@@ -243,11 +278,13 @@ namespace AygazSmartEnergy.Services
                         var device = consumption.Device;
                         if (device != null && consumption.PowerConsumption > device.MaxPowerConsumption * 0.9)
                         {
-                            // Aynı cihaz için son 1 saatte uyarı oluşturulmuş mu kontrol et
+                            // Aynı cihaz için son 5 dakikada uyarı oluşturulmuş mu kontrol et
                             var existingAlert = await _context.Alerts
+                                .AsNoTracking()
                                 .FirstOrDefaultAsync(a => a.DeviceId == device.Id && 
                                                          a.AlertType == "HighConsumption" && 
-                                                         a.CreatedAt >= oneHourAgo);
+                                                         !a.IsResolved &&
+                                                         a.CreatedAt >= fiveMinutesAgo);
 
                             if (existingAlert == null)
                             {
@@ -275,11 +312,22 @@ namespace AygazSmartEnergy.Services
         {
             try
             {
-                var oneHourAgo = DateTime.Now.AddHours(-1);
+                // Son 5 dakikadaki YENİ verileri kontrol et
+                var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
                 var recentConsumptions = await _context.EnergyConsumptions
-                    .Where(e => e.RecordedAt >= oneHourAgo && e.Temperature > 60)
+                    .Where(e => e.RecordedAt >= fiveMinutesAgo && 
+                               e.RecordedAt <= DateTime.UtcNow &&
+                               e.Temperature > 40) // 40°C üzeri
                     .Include(e => e.Device)
+                    .AsNoTracking()
                     .ToListAsync();
+
+                // Eğer son 5 dakikada veri yoksa, alert oluşturma
+                if (!recentConsumptions.Any())
+                {
+                    _logger.LogDebug("Son 5 dakikada yeni veri yok, sıcaklık kontrolü atlandı");
+                    return;
+                }
 
                 foreach (var consumption in recentConsumptions)
                 {
@@ -289,9 +337,11 @@ namespace AygazSmartEnergy.Services
                         if (device != null)
                         {
                             var existingAlert = await _context.Alerts
+                                .AsNoTracking()
                                 .FirstOrDefaultAsync(a => a.DeviceId == device.Id && 
                                                          a.AlertType == "TemperatureAnomaly" && 
-                                                         a.CreatedAt >= oneHourAgo);
+                                                         !a.IsResolved &&
+                                                         a.CreatedAt >= fiveMinutesAgo);
 
                             if (existingAlert == null)
                             {
@@ -300,7 +350,7 @@ namespace AygazSmartEnergy.Services
                                     "Sıcaklık Anomalisi",
                                     $"{device.DeviceName} cihazında yüksek sıcaklık tespit edildi. Mevcut sıcaklık: {consumption.Temperature:F2}°C",
                                     "TemperatureAnomaly",
-                                    "High",
+                                    consumption.Temperature > 50 ? "Critical" : "High",
                                     device.Id,
                                     JsonSerializer.Serialize(new { Temperature = consumption.Temperature })
                                 );
@@ -355,11 +405,23 @@ namespace AygazSmartEnergy.Services
         {
             try
             {
-                var oneHourAgo = DateTime.Now.AddHours(-1);
+                // Son 5 dakikadaki YENİ verileri kontrol et
+                var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
                 var recentConsumptions = await _context.EnergyConsumptions
-                    .Where(e => e.RecordedAt >= oneHourAgo && e.PowerFactor < 0.8)
+                    .Where(e => e.RecordedAt >= fiveMinutesAgo && 
+                               e.RecordedAt <= DateTime.UtcNow &&
+                               e.PowerFactor > 0 && // 0 değeri geçersiz
+                               e.PowerFactor < 0.7) // 0.7'den düşük
                     .Include(e => e.Device)
+                    .AsNoTracking()
                     .ToListAsync();
+
+                // Eğer son 5 dakikada veri yoksa, alert oluşturma
+                if (!recentConsumptions.Any())
+                {
+                    _logger.LogDebug("Son 5 dakikada yeni veri yok, güç faktörü kontrolü atlandı");
+                    return;
+                }
 
                 foreach (var consumption in recentConsumptions)
                 {
@@ -369,9 +431,11 @@ namespace AygazSmartEnergy.Services
                         if (device != null)
                         {
                             var existingAlert = await _context.Alerts
+                                .AsNoTracking()
                                 .FirstOrDefaultAsync(a => a.DeviceId == device.Id && 
                                                          a.AlertType == "LowPowerFactor" && 
-                                                         a.CreatedAt >= oneHourAgo);
+                                                         !a.IsResolved &&
+                                                         a.CreatedAt >= fiveMinutesAgo);
 
                             if (existingAlert == null)
                             {
@@ -380,7 +444,7 @@ namespace AygazSmartEnergy.Services
                                     "Düşük Güç Faktörü",
                                     $"{device.DeviceName} cihazında düşük güç faktörü tespit edildi. Mevcut değer: {consumption.PowerFactor:F2}",
                                     "LowPowerFactor",
-                                    "Medium",
+                                    consumption.PowerFactor < 0.5 ? "High" : "Medium",
                                     device.Id,
                                     JsonSerializer.Serialize(new { PowerFactor = consumption.PowerFactor })
                                 );
@@ -399,11 +463,23 @@ namespace AygazSmartEnergy.Services
         {
             try
             {
-                var oneHourAgo = DateTime.Now.AddHours(-1);
+                // Son 5 dakikadaki YENİ verileri kontrol et
+                var fiveMinutesAgo = DateTime.UtcNow.AddMinutes(-5);
                 var recentConsumptions = await _context.EnergyConsumptions
-                    .Where(e => e.RecordedAt >= oneHourAgo && (e.Voltage < 200 || e.Voltage > 250))
+                    .Where(e => e.RecordedAt >= fiveMinutesAgo && 
+                               e.RecordedAt <= DateTime.UtcNow &&
+                               e.Voltage > 0 && // 0 değeri geçersiz
+                               (e.Voltage < 200 || e.Voltage > 250)) // Anormal voltaj
                     .Include(e => e.Device)
+                    .AsNoTracking()
                     .ToListAsync();
+
+                // Eğer son 5 dakikada veri yoksa, alert oluşturma
+                if (!recentConsumptions.Any())
+                {
+                    _logger.LogDebug("Son 5 dakikada yeni veri yok, voltaj kontrolü atlandı");
+                    return;
+                }
 
                 foreach (var consumption in recentConsumptions)
                 {
@@ -413,9 +489,11 @@ namespace AygazSmartEnergy.Services
                         if (device != null)
                         {
                             var existingAlert = await _context.Alerts
+                                .AsNoTracking()
                                 .FirstOrDefaultAsync(a => a.DeviceId == device.Id && 
                                                          a.AlertType == "VoltageAnomaly" && 
-                                                         a.CreatedAt >= oneHourAgo);
+                                                         !a.IsResolved &&
+                                                         a.CreatedAt >= fiveMinutesAgo);
 
                             if (existingAlert == null)
                             {
@@ -424,7 +502,7 @@ namespace AygazSmartEnergy.Services
                                     "Voltaj Anomalisi",
                                     $"{device.DeviceName} cihazında anormal voltaj tespit edildi. Mevcut voltaj: {consumption.Voltage:F2}V",
                                     "VoltageAnomaly",
-                                    "High",
+                                    (consumption.Voltage < 180 || consumption.Voltage > 260) ? "Critical" : "High",
                                     device.Id,
                                     JsonSerializer.Serialize(new { Voltage = consumption.Voltage })
                                 );

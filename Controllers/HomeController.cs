@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using AygazSmartEnergy.Models;
 
+// Basit giriş/ana sayfa ve hata sayfası.
 namespace AygazSmartEnergy.Controllers;
 
 public class HomeController : Controller

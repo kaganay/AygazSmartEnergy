@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
+// Identity genişlemesi: ad/soyad, adres, durum, navigasyonlar.
 namespace AygazSmartEnergy.Models
 {
     public class ApplicationUser : IdentityUser
@@ -14,7 +15,7 @@ namespace AygazSmartEnergy.Models
         public string? Address { get; set; }
 
         [PersonalData]
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [PersonalData]
         public DateTime? LastLoginAt { get; set; }

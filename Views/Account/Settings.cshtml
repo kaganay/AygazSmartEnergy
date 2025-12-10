@@ -53,7 +53,19 @@
 
                         <div class="mb-3">
                             <label class="form-label">Son Giriş</label>
-                            <input class="form-control" value="@(Model.LastLoginAt?.ToString("g") ?? "Henüz giriş yapılmadı")" disabled />
+                            @{
+                                if (Model.LastLoginAt.HasValue)
+                                {
+                                    var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+                                    var lastUtc = DateTime.SpecifyKind(Model.LastLoginAt.Value, DateTimeKind.Utc);
+                                    var lastTr = TimeZoneInfo.ConvertTimeFromUtc(lastUtc, tz);
+                                    <input class="form-control" value="@lastTr.ToString("dd.MM.yyyy HH:mm")" disabled />
+                                }
+                                else
+                                {
+                                    <input class="form-control" value="Henüz giriş yapılmadı" disabled />
+                                }
+                            }
                         </div>
 
                         <button type="submit" class="btn btn-primary">
@@ -76,20 +88,8 @@
                             <span class="badge bg-secondary">@Model.GasThreshold.ToString("F1") ppm</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-fan me-2 text-primary"></i>Gaz için Otomatik Fan</span>
-                            <span class="badge @(Model.AutoFanEnabled ? "bg-success" : "bg-danger")">
-                                @(Model.AutoFanEnabled ? "Açık" : "Kapalı")
-                            </span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span><i class="fas fa-temperature-high me-2 text-warning"></i>Sıcaklık Eşiği</span>
                             <span class="badge bg-secondary">@Model.TemperatureThreshold.ToString("F1") °C</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-fan me-2 text-warning"></i>Sıcaklık için Otomatik Fan</span>
-                            <span class="badge @(Model.TemperatureAutoFanEnabled ? "bg-success" : "bg-danger")">
-                                @(Model.TemperatureAutoFanEnabled ? "Açık" : "Kapalı")
-                            </span>
                         </li>
                     </ul>
                 </div>

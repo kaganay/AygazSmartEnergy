@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 
+// Sensör verisi: sıcaklık/voltaj/akım/güç faktörü ve meta bilgileri.
 namespace AygazSmartEnergy.Models
 {
     public class SensorData
@@ -38,7 +39,7 @@ namespace AygazSmartEnergy.Models
         [StringLength(50)]
         public string? Status { get; set; } = "Active"; // Active, Inactive, Error
 
-        public DateTime RecordedAt { get; set; } = DateTime.Now;
+        public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
 
         // Foreign Keys
         public int? DeviceId { get; set; }

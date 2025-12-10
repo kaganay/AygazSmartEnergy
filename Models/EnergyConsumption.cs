@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
+// Enerji tüketim kaydı: güç, enerji, voltaj/akım ve zaman damgası.
 namespace AygazSmartEnergy.Models
 {
     public class EnergyConsumption
@@ -28,7 +29,7 @@ namespace AygazSmartEnergy.Models
         public double GasLevel { get; set; } // Percentage
 
         [Required]
-        public DateTime RecordedAt { get; set; } = DateTime.Now;
+        public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
 
         [StringLength(50)]
         public string? WeatherCondition { get; set; } // Sunny, Cloudy, Rainy, etc.

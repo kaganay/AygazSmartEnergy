@@ -1,7 +1,9 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using AygazSmartEnergy.Models;
+using AygazSmartEnergy.Services; // EnergyPrediction, PredictionFactor vb. tipler için
 
+// View modeller: dashboard, cihaz detay, analiz, hesap ayarları vb.
 namespace AygazSmartEnergy.Models
 {
     public class DashboardViewModel
@@ -42,9 +44,7 @@ namespace AygazSmartEnergy.Models
         public bool IsActive { get; set; }
         public DateTime? LastLoginAt { get; set; }
         public double GasThreshold { get; set; }
-        public bool AutoFanEnabled { get; set; }
         public double TemperatureThreshold { get; set; }
-        public bool TemperatureAutoFanEnabled { get; set; }
     }
 
     public class DeviceDetailsViewModel
@@ -90,8 +90,11 @@ namespace AygazSmartEnergy.Models
     {
         public DateTime DetectedAt { get; set; }
         public string AnomalyType { get; set; } = string.Empty;
-        public double Severity { get; set; }
+        public double Severity { get; set; } // 0-1 arası
         public string Description { get; set; } = string.Empty;
+        public double NormalValue { get; set; } // Normal beklenen değer
+        public double ActualValue { get; set; } // Gerçekleşen değer
+        public string Recommendation { get; set; } = string.Empty; // Önerilen aksiyon
     }
 
     public class EnergySavingsRecommendation
@@ -106,10 +109,14 @@ namespace AygazSmartEnergy.Models
     {
         public string ActionName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public double PotentialSavings { get; set; }
-        public double EnergyReduction { get; set; }
-        public double ImplementationCost { get; set; }
-        public int PaybackPeriod { get; set; }
+        public string Category { get; set; } = string.Empty; // Efficiency, Schedule, Temperature, Maintenance
+        public double PotentialSavings { get; set; } // TL per month
+        public double EnergyReduction { get; set; } // kWh per month
+        public double ImplementationCost { get; set; } // TL
+        public int PaybackPeriod { get; set; } // months
+        public string Priority { get; set; } = string.Empty; // High, Medium, Low
+        public List<string> Steps { get; set; } = new List<string>(); // Uygulama adımları
+        public string? ExpectedImpact { get; set; } // Beklenen etki açıklaması
     }
 
     public class EnergyConsumptionSummary
@@ -130,6 +137,17 @@ namespace AygazSmartEnergy.Models
         public double EstimatedMonthlyCost { get; set; }
         public double PotentialMonthlySavings { get; set; }
         public IReadOnlyList<Device> TopConsumers { get; set; } = Array.Empty<Device>();
+    }
+
+    /// <summary>
+    /// AI/ML destekli enerji tahmini sayfası için ViewModel.
+    /// Python ML servisi üzerinden gelen EnergyPrediction sonucunu ve cihaz bilgisini taşır.
+    /// </summary>
+    public class EnergyForecastViewModel
+    {
+        public Device Device { get; set; } = null!;
+        public EnergyPrediction Prediction { get; set; } = new EnergyPrediction();
+        public int DaysAhead { get; set; }
     }
 
     public class RegisterViewModel

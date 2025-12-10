@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
+// Kullanıcı hesap akışı: kayıt, giriş, profil ve ayarlar.
 namespace AygazSmartEnergy.Controllers
 {
-    [Authorize]
     public class AccountController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -26,6 +26,7 @@ namespace AygazSmartEnergy.Controllers
             _configuration = configuration;
         }
 
+        [Authorize]
         [HttpGet]
         public async Task<IActionResult> Profile()
         {
@@ -38,6 +39,7 @@ namespace AygazSmartEnergy.Controllers
             return View(user);
         }
 
+        [Authorize]
         [HttpGet]
         public async Task<IActionResult> Settings()
         {
@@ -53,15 +55,14 @@ namespace AygazSmartEnergy.Controllers
                 UserId = user.Id,
                 FirstName = user.FirstName,
                 LastName = user.LastName,
-                Email = user.Email ?? string.Empty,
+                Email = user.Email ?? string.Empty,  // Email null ise boş string kullan
                 PhoneNumber = user.PhoneNumber,
                 Address = user.Address,
                 IsActive = user.IsActive,
                 LastLoginAt = user.LastLoginAt,
+                
                 GasThreshold = _configuration.GetValue<double>("GasSettings:Mq2Threshold", 40.0),
-                AutoFanEnabled = _configuration.GetValue<bool>("GasSettings:AutoFanEnabled"),
-                TemperatureThreshold = _configuration.GetValue<double>("TemperatureSettings:Threshold", 27.0),
-                TemperatureAutoFanEnabled = _configuration.GetValue<bool>("TemperatureSettings:AutoFanEnabled")
+                TemperatureThreshold = _configuration.GetValue<double>("TemperatureSettings:Threshold", 27.0)
             };
 
             return View(model);
@@ -95,7 +96,7 @@ namespace AygazSmartEnergy.Controllers
             user.FirstName = model.FirstName;
             user.LastName = model.LastName;
             user.Email = model.Email;
-            user.UserName = model.Email;
+            user.UserName = model.Email;  // Email ile username aynı (Identity kuralı)
             user.PhoneNumber = model.PhoneNumber;
             user.Address = model.Address;
             user.IsActive = model.IsActive;
@@ -141,7 +142,7 @@ namespace AygazSmartEnergy.Controllers
                 LastName = model.LastName,
                 PhoneNumber = model.PhoneNumber,
                 Address = model.Address,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
 
@@ -195,7 +196,7 @@ namespace AygazSmartEnergy.Controllers
                 var user = await _userManager.FindByEmailAsync(model.Email);
                 if (user != null)
                 {
-                    user.LastLoginAt = DateTime.Now;
+                    user.LastLoginAt = DateTime.UtcNow;
                     await _userManager.UpdateAsync(user);
                 }
 
@@ -224,7 +225,7 @@ namespace AygazSmartEnergy.Controllers
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Login", "Account");
         }
 
         [AllowAnonymous]
@@ -242,9 +243,7 @@ namespace AygazSmartEnergy.Controllers
         private void PopulateReadOnlySettings(AccountSettingsViewModel model)
         {
             model.GasThreshold = _configuration.GetValue<double>("GasSettings:Mq2Threshold", 40.0);
-            model.AutoFanEnabled = _configuration.GetValue<bool>("GasSettings:AutoFanEnabled");
             model.TemperatureThreshold = _configuration.GetValue<double>("TemperatureSettings:Threshold", 27.0);
-            model.TemperatureAutoFanEnabled = _configuration.GetValue<bool>("TemperatureSettings:AutoFanEnabled");
         }
     }
 }

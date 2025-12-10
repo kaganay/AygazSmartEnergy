@@ -72,11 +72,6 @@
                     <span class="me-2"><i class="fas fa-fire-extinguisher me-1"></i>Gaz:</span>
                     <span id="gasLevelBadge" class="badge bg-secondary">-</span>
                 </li>
-                <li class="nav-item d-flex align-items-center me-3">
-                    <button class="btn btn-sm btn-outline-light d-flex align-items-center" id="fanToggleBtn">
-                        <i class="fas fa-fan me-2"></i><span id="fanToggleText">Fanı Aç</span>
-                    </button>
-                </li>
                 @if (isSignedIn)
                 {
                     <li class="nav-item dropdown">
@@ -173,15 +168,6 @@
                 "responsive": true
             });
 
-            // Fan state initialize
-            fetch('/api/IoT/fan')
-                .then(r => r.json())
-                .then(d => {
-                    if (d && d.success) {
-                        updateFanToggle(d.on === true);
-                    }
-                }).catch(() => {});
-
             // Latest gas level
             fetch('/api/IoT/sensor-data/latest?count=1')
                 .then(r => r.json())
@@ -192,27 +178,6 @@
                     }
                 }).catch(() => {});
 
-            document.getElementById('fanToggleBtn')?.addEventListener('click', function () {
-                const wantOn = this.getAttribute('data-on') !== 'true';
-                fetch('/api/IoT/fan', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ on: wantOn })
-                })
-                    .then(r => r.json())
-                    .then(d => {
-                        if (d && d.success) {
-                            updateFanToggle(d.on === true);
-                        }
-                    })
-                    .catch(() => {});
-            });
-
-            // SignalR ile fan durumunu dinle
-            connection.on("ReceiveFanStatus", (fanStatus) => {
-                updateFanToggle(fanStatus.isOn === true);
-            });
-
             // SignalR ile sensör verilerini dinle (navbar için)
             connection.on("ReceiveSensorData", (sensorData) => {
                 if (sensorData.gasLevel !== undefined) {
@@ -220,14 +185,6 @@
                 }
             });
         });
-
-        function updateFanToggle(on) {
-            const btn = document.getElementById('fanToggleBtn');
-            const text = document.getElementById('fanToggleText');
-            if (!btn || !text) return;
-            btn.setAttribute('data-on', on ? 'true' : 'false');
-            text.textContent = on ? 'Fanı Kapat' : 'Fanı Aç';
-        }
 
         function setGasBadge(value) {
             const badge = document.getElementById('gasLevelBadge');

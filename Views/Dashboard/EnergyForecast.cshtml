@@ -1,0 +1,294 @@
+@model AygazSmartEnergy.Models.EnergyForecastViewModel
+@{
+    ViewData["Title"] = "AI Destekli Enerji Tahmini";
+    var device = Model.Device;
+    var prediction = Model.Prediction;
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-chart-line me-2"></i>AI Destekli Enerji Tahmini
+            </h2>
+            <small class="text-muted">
+                Cihaz: <strong>@device.DeviceName</strong> &mdash;
+                @Model.DaysAhead gün sonrası için tahmin
+            </small>
+        </div>
+        <div class="d-flex gap-2">
+            <a asp-controller="Dashboard" asp-action="DeviceDetails" asp-route-id="@device.Id" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Cihaz detayına dön
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-4 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-bolt text-warning me-2" style="font-size: 1.5rem;"></i>
+                        <h6 class="text-muted text-uppercase mb-0">Tahmin Edilen Enerji Tüketimi</h6>
+                    </div>
+                    <div class="display-6 fw-bold text-primary">
+                        @prediction.PredictedEnergyConsumption.ToString("F2")
+                        <small class="text-muted fs-6">kWh</small>
+                    </div>
+                    <div class="mt-2">
+                        <i class="fas fa-calendar-alt text-muted me-1"></i>
+                        <small class="text-muted">
+                            @Model.DaysAhead gün sonra (@prediction.PredictionDate.ToLocalTime().ToString("dd.MM.yyyy"))
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-shield-alt text-@(prediction.ConfidenceLevel * 100 >= 70 ? "success" : prediction.ConfidenceLevel * 100 >= 50 ? "warning" : "danger") me-2" style="font-size: 1.5rem;"></i>
+                        <h6 class="text-muted text-uppercase mb-0">Tahmin Güvenilirliği</h6>
+                    </div>
+                    @{
+                        var confidencePercent = prediction.ConfidenceLevel * 100;
+                        var confidenceColor = confidencePercent >= 70 ? "success" : confidencePercent >= 50 ? "warning" : "danger";
+                        var confidenceIcon = confidencePercent >= 70 ? "fa-check-circle" : confidencePercent >= 50 ? "fa-exclamation-triangle" : "fa-times-circle";
+                        var confidenceText = confidencePercent >= 70 ? "Yüksek Güvenilirlik" : confidencePercent >= 50 ? "Orta Güvenilirlik" : "Düşük Güvenilirlik";
+                        var confidenceDesc = confidencePercent >= 70 ? "✅ Bu tahmin güvenilir. Planlama ve bütçe hazırlığı için kullanabilirsiniz." : 
+                                           confidencePercent >= 50 ? "⚠️ Bu tahmin dikkatli kullanılmalı. Daha fazla veri toplanması önerilir." : 
+                                           "❌ Bu tahmin düşük güvenilirlikte. Daha fazla veri toplanana kadar beklenmesi önerilir.";
+                    }
+                    <div class="display-6 fw-bold text-@confidenceColor mb-2">
+                        <i class="fas @confidenceIcon me-2"></i>@confidencePercent.ToString("F0")%
+                    </div>
+                    <div class="progress mb-3" style="height: 12px; border-radius: 6px;">
+                        <div class="progress-bar bg-@confidenceColor progress-bar-striped" role="progressbar" 
+                             style="width: @(confidencePercent)%" 
+                             aria-valuenow="@(confidencePercent)" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                    <div class="alert alert-@confidenceColor mb-0 py-2 px-3" style="font-size: 0.85rem;">
+                        <strong>@confidenceText</strong><br>
+                        <small>@confidenceDesc</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-12">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-chart-area text-info me-2" style="font-size: 1.5rem;"></i>
+                        <h6 class="text-muted text-uppercase mb-0">Olası Tüketim Aralığı</h6>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">
+                                <i class="fas fa-arrow-down text-danger me-1"></i>En Düşük:
+                            </span>
+                            <strong class="text-danger">@prediction.MinPrediction.ToString("F2") kWh</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">
+                                <i class="fas fa-arrow-up text-success me-1"></i>En Yüksek:
+                            </span>
+                            <strong class="text-success">@prediction.MaxPrediction.ToString("F2") kWh</strong>
+                        </div>
+                    </div>
+                    <div class="alert alert-light mb-0 py-2 px-3" style="font-size: 0.85rem;">
+                        <i class="fas fa-info-circle text-info me-1"></i>
+                        <small>Gerçek tüketim bu aralıkta olabilir. Planlama yaparken bu aralığı dikkate alın.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (prediction.Factors != null && prediction.Factors.Any())
+    {
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white d-flex align-items-center">
+                        <i class="fas fa-cogs me-2 text-primary"></i>
+                        <h6 class="mb-0">Tahminin Dayandığı Faktörler</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-3">
+                            <i class="fas fa-lightbulb text-warning me-1"></i>
+                            AI modeli aşağıdaki faktörleri analiz ederek bu tahmini oluşturdu:
+                        </p>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 30%;">Faktör</th>
+                                        <th style="width: 25%;">Etkisi</th>
+                                        <th style="width: 45%;">Ne Anlama Geliyor?</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var factor in prediction.Factors)
+                                    {
+                                        var impactValue = factor.Impact;
+                                        var impactColor = impactValue > 0 ? "success" : impactValue < 0 ? "danger" : "secondary";
+                                        var impactIcon = impactValue > 0 ? "fa-arrow-up" : impactValue < 0 ? "fa-arrow-down" : "fa-equals";
+                                        var impactText = impactValue > 0 ? "Artırıyor" : impactValue < 0 ? "Azaltıyor" : "Etkisiz";
+                                        var factorIcon = factor.FactorName.Contains("Trend") ? "fa-chart-line" : 
+                                                         factor.FactorName.Contains("Sıcaklık") ? "fa-thermometer-half" :
+                                                         factor.FactorName.Contains("Voltaj") ? "fa-bolt" :
+                                                         factor.FactorName.Contains("Güç") ? "fa-plug" : "fa-info-circle";
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas @factorIcon text-primary me-2"></i>
+                                                    <strong>@factor.FactorName</strong>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-@impactColor">
+                                                    <i class="fas @impactIcon me-1"></i>@impactText
+                                                </span>
+                                                <br><small class="text-muted">@Math.Abs(impactValue).ToString("F2")</small>
+                                            </td>
+                                            <td>
+                                                <small>@factor.Description</small>
+                                                @if (factor.FactorName == "Tarihsel Trend")
+                                                {
+                                                    <div class="mt-1">
+                                                        @if (impactValue > 0)
+                                                        {
+                                                            <span class="badge bg-warning text-dark">
+                                                                <i class="fas fa-arrow-trend-up me-1"></i>Tüketim artıyor
+                                                            </span>
+                                                        }
+                                                        else if (impactValue < 0)
+                                                        {
+                                                            <span class="badge bg-info">
+                                                                <i class="fas fa-arrow-trend-down me-1"></i>Tüketim azalıyor
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">
+                                                                <i class="fas fa-minus me-1"></i>Stabil seyir
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                }
+                                                @if (factor.FactorName == "Sıcaklık Etkisi")
+                                                {
+                                                    <div class="mt-1">
+                                                        @if (Math.Abs(impactValue) > 0.7)
+                                                        {
+                                                            <span class="badge bg-danger">
+                                                                <i class="fas fa-fire me-1"></i>Çok Etkili
+                                                            </span>
+                                                        }
+                                                        else if (Math.Abs(impactValue) > 0.4)
+                                                        {
+                                                            <span class="badge bg-warning text-dark">
+                                                                <i class="fas fa-sun me-1"></i>Orta Etkili
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">
+                                                                <i class="fas fa-snowflake me-1"></i>Az Etkili
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white d-flex align-items-center">
+                        <i class="fas fa-question-circle me-2 text-info"></i>
+                        <h6 class="mb-0">Nasıl Çalışıyor?</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-2">
+                                <i class="fas fa-robot text-primary me-2"></i>AI Modeli Nasıl Tahmin Yapıyor?
+                            </h6>
+                            <p class="small text-muted mb-2">
+                                Sistem, geçmiş verilerinizi analiz ederek gelecekteki enerji tüketimini tahmin ediyor. 
+                                Bu tahmin için <strong>makine öğrenmesi</strong> teknolojisi kullanılıyor.
+                            </p>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6 class="fw-bold mb-2">
+                                <i class="fas fa-database text-success me-2"></i>Hangi Veriler Kullanılıyor?
+                            </h6>
+                            <div class="row g-2 small">
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Son 30 günlük tüketim</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Sıcaklık verileri</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Voltaj ölçümleri</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Güç tüketimi</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Zaman bilgisi</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Güç faktörü</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-light border-start border-3 border-primary mb-0">
+                            <div class="d-flex align-items-start">
+                                <i class="fas fa-lightbulb text-warning me-2 mt-1"></i>
+                                <div>
+                                    <strong class="d-block mb-1">💡 Önemli Bilgi:</strong>
+                                    <small>
+                                        Güven seviyesi <strong>%70'in üzerindeyse</strong> bu tahmin güvenilir kabul edilir ve 
+                                        <strong>bütçe planlaması</strong> için kullanabilirsiniz. 
+                                        Düşük güven seviyelerinde daha fazla veri toplanması önerilir.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            Bu cihaz için yeterli veri olmadığı için detaylı faktör analizi gösterilemiyor.
+        </div>
+    }
+</div>
+
+

@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using AygazSmartEnergy.Data;
 using AygazSmartEnergy.Models;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 
+// Python ML servis entegrasyonu: tahmin ve anomali/öneri çağrıları.
 namespace AygazSmartEnergy.Services
 {
     public class AIMLService : IAIMLService
@@ -10,32 +12,44 @@ namespace AygazSmartEnergy.Services
         private readonly AppDbContext _context;
         private readonly ILogger<AIMLService> _logger;
         private readonly HttpClient _httpClient;
+        private readonly string _mlServiceBaseUrl;
 
-        public AIMLService(AppDbContext context, ILogger<AIMLService> logger, HttpClient httpClient)
+        public AIMLService(AppDbContext context, ILogger<AIMLService> logger, HttpClient httpClient, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
             _httpClient = httpClient;
+            // Docker container'ında python-ml-service:5000, localhost'ta localhost:5000
+            _mlServiceBaseUrl = configuration["PythonMLService:BaseUrl"] 
+                ?? (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development" 
+                    ? "http://python-ml-service:5000" 
+                    : "http://localhost:5000");
         }
 
         public async Task<EnergyPrediction> PredictEnergyConsumptionAsync(int deviceId, int daysAhead)
         {
             try
             {
-                // Son 30 günlük verileri al
+                // Son 30 günlük verileri al (en yeni kayıtlar önce)
                 var historicalData = await _context.EnergyConsumptions
                     .Where(e => e.DeviceId == deviceId)
-                    .OrderBy(e => e.RecordedAt)
-                    .Take(30)
+                    .OrderByDescending(e => e.RecordedAt)  // En yeni kayıtlar önce
+                    .Take(30)  // Son 30 kayıt
+                    .OrderBy(e => e.RecordedAt)  // Python ML servisi için tarih sırasına göre sırala
                     .ToListAsync();
 
-                if (!historicalData.Any())
+                // Python ML servisi en az 7 günlük veri bekliyor (rolling window=7)
+                if (historicalData.Count < 7)
                 {
+                    _logger.LogWarning($"Device {deviceId} için yeterli veri yok. Mevcut: {historicalData.Count}, Gerekli: 7");
                     return new EnergyPrediction
                     {
                         PredictionDate = DateTime.Now.AddDays(daysAhead),
                         PredictedEnergyConsumption = 0,
-                        ConfidenceLevel = 0
+                        ConfidenceLevel = 0,
+                        MinPrediction = 0,
+                        MaxPrediction = 0,
+                        Factors = new List<PredictionFactor>()
                     };
                 }
 
@@ -59,7 +73,7 @@ namespace AygazSmartEnergy.Services
                 var jsonContent = JsonSerializer.Serialize(predictionRequest);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("http://localhost:5000/predict-energy", content);
+                var response = await _httpClient.PostAsync($"{_mlServiceBaseUrl}/predict-energy", content);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -119,7 +133,7 @@ namespace AygazSmartEnergy.Services
                 var jsonContent = JsonSerializer.Serialize(anomalyRequest);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("http://localhost:5000/detect-anomalies", content);
+                var response = await _httpClient.PostAsync($"{_mlServiceBaseUrl}/detect-anomalies", content);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -185,7 +199,7 @@ namespace AygazSmartEnergy.Services
                 var jsonContent = JsonSerializer.Serialize(optimizationRequest);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("http://localhost:5000/optimize-energy", content);
+                var response = await _httpClient.PostAsync($"{_mlServiceBaseUrl}/optimize-energy", content);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -250,7 +264,7 @@ namespace AygazSmartEnergy.Services
                 var jsonContent = JsonSerializer.Serialize(maintenanceRequest);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("http://localhost:5000/predict-maintenance", content);
+                var response = await _httpClient.PostAsync($"{_mlServiceBaseUrl}/predict-maintenance", content);
                 
                 if (response.IsSuccessStatusCode)
                 {
@@ -313,7 +327,7 @@ namespace AygazSmartEnergy.Services
                 var jsonContent = JsonSerializer.Serialize(efficiencyRequest);
                 var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("http://localhost:5000/calculate-efficiency", content);
+                var response = await _httpClient.PostAsync($"{_mlServiceBaseUrl}/calculate-efficiency", content);
                 
                 if (response.IsSuccessStatusCode)
                 {

@@ -6,17 +6,41 @@
     var latestConsumption = device.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).FirstOrDefault();
     var latestSensor = device.SensorDatas?.OrderByDescending(s => s.RecordedAt).FirstOrDefault();
     var isOnline = latestSensor != null && latestSensor.RecordedAt >= DateTime.Now.AddMinutes(-10);
+
+    // Tüm tarihleri UTC'den Türkiye saatine (Europe/Istanbul) çevir
+    Func<DateTime, DateTime> toTurkeyTime = utc =>
+    {
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+        if (utc.Kind == DateTimeKind.Unspecified)
+        {
+            utc = DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        }
+        else if (utc.Kind == DateTimeKind.Local)
+        {
+            utc = utc.ToUniversalTime();
+        }
+        return TimeZoneInfo.ConvertTimeFromUtc(utc, tz);
+    };
 }
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h2 class="mb-0"><i class="fas fa-microchip me-2"></i>@device.DeviceName</h2>
+            <h2 class="mb-0"><i class="fas fa-microchip me-2"></i><span id="deviceNameHeader">@device.DeviceName</span></h2>
             <small class="text-muted">Seri No: @(string.IsNullOrWhiteSpace(device.SerialNumber) ? "Tanımsız" : device.SerialNumber)</small>
         </div>
-        <a asp-controller="Dashboard" asp-action="Devices" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Cihaz listesine dön
-        </a>
+        <div class="btn-group" role="group">
+            <a asp-controller="Dashboard" asp-action="Devices" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Cihaz listesine dön
+            </a>
+            <a asp-controller="Dashboard"
+               asp-action="EnergyForecast"
+               asp-route-deviceId="@device.Id"
+               asp-route-daysAhead="7"
+               class="btn btn-primary">
+                <i class="fas fa-chart-line me-2"></i>AI Enerji Tahmini (7 Gün)
+            </a>
+        </div>
     </div>
 
     <div class="row g-3 mb-4">
@@ -39,10 +63,14 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <h6 class="text-muted text-uppercase">Son Enerji Kullanımı</h6>
-                    <div class="display-6 fw-bold">
-                        @(latestConsumption?.EnergyUsed.ToString("F2") ?? "0") <small class="text-muted fs-6">kWh</small>
+                    <div class="display-6 fw-bold" id="liveEnergy">
+                        @(latestConsumption != null && latestConsumption.EnergyUsed > 0 ? latestConsumption.EnergyUsed.ToString("F2") : "-") <small class="text-muted fs-6">kWh</small>
                     </div>
-                    <small class="text-muted">@(latestConsumption?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                    <small class="text-muted" id="liveEnergyTime">
+                        @(latestConsumption != null
+                            ? toTurkeyTime(latestConsumption.RecordedAt).ToString("dd.MM.yyyy HH:mm:ss")
+                            : "Veri yok")
+                    </small>
                 </div>
             </div>
         </div>
@@ -50,10 +78,14 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <h6 class="text-muted text-uppercase">Anlık Sıcaklık</h6>
-                    <div class="display-6 fw-bold">
-                        @(latestSensor != null ? latestSensor.Temperature.ToString("F1") : "-") <small class="text-muted fs-6">°C</small>
+                    <div class="display-6 fw-bold" id="liveTemperature">
+                        @(latestSensor != null && latestSensor.Temperature > 0 ? latestSensor.Temperature.ToString("F1") : "-") <small class="text-muted fs-6">°C</small>
                     </div>
-                    <small class="text-muted">@(latestSensor?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                    <small class="text-muted" id="liveTemperatureTime">
+                        @(latestSensor != null
+                            ? toTurkeyTime(latestSensor.RecordedAt).ToString("dd.MM.yyyy HH:mm:ss")
+                            : "Veri yok")
+                    </small>
                 </div>
             </div>
         </div>
@@ -61,10 +93,10 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <h6 class="text-muted text-uppercase">Anlık Voltaj</h6>
-                    <div class="display-6 fw-bold">
-                        @(latestSensor != null ? latestSensor.Voltage.ToString("F2") : "-") <small class="text-muted fs-6">V</small>
+                    <div class="display-6 fw-bold" id="liveVoltage">
+                        @(latestSensor != null && latestSensor.Voltage > 0 ? latestSensor.Voltage.ToString("F2") : "-") <small class="text-muted fs-6">V</small>
                     </div>
-                    <small class="text-muted">@(latestSensor?.RecordedAt.ToString("g") ?? "Veri yok")</small>
+                    <small class="text-muted" id="liveVoltageTime">@(latestSensor != null ? latestSensor.RecordedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss") : "Veri yok")</small>
                 </div>
             </div>
         </div>
@@ -80,7 +112,7 @@
                     @if (device.EnergyConsumptions.Any())
                     {
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle">
+                            <table class="table table-striped align-middle" id="energyConsumptionTable">
                                 <thead>
                                     <tr>
                                         <th>Tarih</th>
@@ -93,7 +125,7 @@
                                     @foreach (var item in device.EnergyConsumptions.OrderByDescending(e => e.RecordedAt).Take(30))
                                     {
                                         <tr>
-                                            <td>@item.RecordedAt.ToString("g")</td>
+                                            <td>@toTurkeyTime(item.RecordedAt).ToString("dd.MM.yyyy HH:mm:ss")</td>
                                             <td>@item.EnergyUsed.ToString("F2")</td>
                                             <td>@item.CostPerHour.ToString("F2")</td>
                                             <td>@item.CarbonFootprint.ToString("F3")</td>
@@ -122,7 +154,7 @@
                     @if (device.SensorDatas != null && device.SensorDatas.Any())
                     {
                         <div class="table-responsive">
-                            <table class="table table-striped align-middle">
+                            <table class="table table-striped align-middle" id="sensorDataTable">
                                 <thead>
                                     <tr>
                                         <th>Zaman</th>
@@ -135,7 +167,7 @@
                                     @foreach (var sensor in device.SensorDatas.OrderByDescending(s => s.RecordedAt).Take(30))
                                     {
                                         <tr>
-                                            <td>@sensor.RecordedAt.ToString("g")</td>
+                                            <td>@toTurkeyTime(sensor.RecordedAt).ToString("dd.MM.yyyy HH:mm:ss")</td>
                                         <td>@(sensor.Temperature > 0 ? sensor.Temperature.ToString("F1") : "-")</td>
                                         <td>@(sensor.Voltage > 0 ? sensor.Voltage.ToString("F2") : "-")</td>
                                         <td>@(sensor.Current > 0 ? sensor.Current.ToString("F2") : "-")</td>
@@ -158,3 +190,281 @@
     </div>
 </div>
 
+@section Scripts {
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        // 🔹 SignalR Bağlantısı: Cihaz detay sayfası için anlık güncelleme
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/energyHub")
+            .build();
+
+        // 🔹 DOM Referansları: Güncellenecek elementler
+        const deviceId = @device.Id;
+        const lastEnergyEl = document.getElementById('liveEnergy');
+        const lastEnergyTimeEl = document.getElementById('liveEnergyTime');
+        const lastTempEl = document.getElementById('liveTemperature');
+        const lastTempTimeEl = document.getElementById('liveTemperatureTime');
+        const lastVoltageEl = document.getElementById('liveVoltage');
+        const lastVoltageTimeEl = document.getElementById('liveVoltageTime');
+
+        // 🔹 Sensör Verisi Güncellemesi: Yeni sensör verisi geldiğinde
+        connection.on("ReceiveSensorData", (sensorData) => {
+            if (!sensorData) return;
+            
+            // DeviceId kontrolü: Eğer DeviceId varsa ve bu cihazın ID'si değilse işleme alma
+            const dataDeviceId = sensorData.DeviceId || sensorData.deviceId;
+            if (dataDeviceId && dataDeviceId !== deviceId) {
+                return; // Bu cihaza ait değil, işleme alma
+            }
+            
+            console.log("ReceiveSensorData event received:", sensorData);
+
+            // Cihaz adını güncelle (eğer gelirse)
+            const deviceName = sensorData.DeviceName || sensorData.deviceName;
+            if (deviceName && document.getElementById('deviceNameHeader')) {
+                document.getElementById('deviceNameHeader').textContent = deviceName;
+            }
+
+            // Sıcaklık güncelle - Tüm değerleri kabul et (0 dahil, sadece null/undefined kontrolü)
+            const temperature = sensorData.Temperature !== undefined ? sensorData.Temperature : 
+                                sensorData.temperature !== undefined ? sensorData.temperature : null;
+            if (temperature !== undefined && temperature !== null && !isNaN(temperature) && lastTempEl) {
+                lastTempEl.innerHTML = parseFloat(temperature).toFixed(1) + ' <small class="text-muted fs-6">°C</small>';
+                if (lastTempTimeEl) {
+                    // RecordedAt varsa onu kullan, yoksa şu anki zamanı kullan
+                    const recordedAt = sensorData.RecordedAt || sensorData.recordedAt;
+                    let timeToShow;
+                    if (recordedAt) {
+                        // SignalR'dan gelen tarih ISO 8601 formatında UTC olarak gelir: "2025-12-03T00:02:36.000Z"
+                        // JavaScript new Date() bu string'i parse ettiğinde UTC olarak yorumlar ve Date objesi oluşturur
+                        // Date objesi her zaman UTC timestamp'i içerir, ama toString() local timezone'a göre gösterir
+                        // toLocaleString() ile timeZone belirtildiğinde, Date objesi UTC olarak yorumlanıp belirtilen timezone'a çevrilir
+                        const dateStr = String(recordedAt);
+                        // Eğer Z ile bitmiyorsa (UTC işareti yoksa), UTC olarak işaretle
+                        const utcStr = dateStr.endsWith('Z') ? dateStr : (dateStr + 'Z');
+                        // UTC string'ini parse et (Date objesi UTC timestamp'i içerir)
+                        timeToShow = new Date(utcStr);
+                    } else {
+                        timeToShow = new Date();
+                    }
+                    // UTC Date objesini Istanbul timezone'ına çevir (toLocaleString timeZone ile doğru çevirir)
+                    lastTempTimeEl.textContent = timeToShow.toLocaleString('tr-TR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZone: 'Europe/Istanbul' // UTC'den Istanbul'a çevir (UTC+3)
+                    });
+                }
+                console.log("Temperature updated:", temperature, "at", sensorData.RecordedAt);
+            }
+
+            // Voltaj güncelle - Tüm değerleri kabul et (0 dahil, sadece null/undefined kontrolü)
+            const voltage = sensorData.Voltage !== undefined ? sensorData.Voltage : 
+                           sensorData.voltage !== undefined ? sensorData.voltage : null;
+            if (voltage !== undefined && voltage !== null && !isNaN(voltage) && lastVoltageEl) {
+                lastVoltageEl.innerHTML = parseFloat(voltage).toFixed(2) + ' <small class="text-muted fs-6">V</small>';
+                if (lastVoltageTimeEl) {
+                    // RecordedAt varsa onu kullan, yoksa şu anki zamanı kullan
+                    const recordedAt = sensorData.RecordedAt || sensorData.recordedAt;
+                    let timeToShow;
+                    if (recordedAt) {
+                        // UTC string'ini doğru parse et
+                        const dateStr = String(recordedAt);
+                        const utcStr = dateStr.endsWith('Z') ? dateStr : (dateStr + 'Z');
+                        timeToShow = new Date(utcStr);
+                    } else {
+                        timeToShow = new Date();
+                    }
+                    // UTC tarihini Istanbul timezone'ına çevir
+                    lastVoltageTimeEl.textContent = timeToShow.toLocaleString('tr-TR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZone: 'Europe/Istanbul'
+                    });
+                }
+                console.log("Voltage updated:", voltage, "at", sensorData.RecordedAt);
+            }
+
+            // Sensör verileri tablosuna yeni satır ekle
+            addSensorDataToTable(sensorData);
+        });
+
+        // 🔹 Enerji Tüketimi Güncellemesi: Yeni enerji tüketimi verisi geldiğinde
+        connection.on("ReceiveEnergyConsumption", (consumption) => {
+            if (!consumption) return;
+            
+            // DeviceId kontrolü: Eğer DeviceId varsa ve bu cihazın ID'si değilse işleme alma
+            const dataDeviceId = consumption.DeviceId || consumption.deviceId;
+            if (dataDeviceId && dataDeviceId !== deviceId) {
+                return; // Bu cihaza ait değil, işleme alma
+            }
+            
+            console.log("ReceiveEnergyConsumption event received:", consumption);
+
+            // Enerji kullanımı güncelle - Tüm değerleri kabul et (0 dahil, sadece null/undefined kontrolü)
+            const energyUsed = consumption.EnergyUsed !== undefined ? consumption.EnergyUsed : 
+                              consumption.energyUsed !== undefined ? consumption.energyUsed : null;
+            if (energyUsed !== undefined && energyUsed !== null && !isNaN(energyUsed) && lastEnergyEl) {
+                lastEnergyEl.innerHTML = parseFloat(energyUsed).toFixed(2) + ' <small class="text-muted fs-6">kWh</small>';
+                if (lastEnergyTimeEl) {
+                    // RecordedAt varsa onu kullan, yoksa şu anki zamanı kullan
+                    const recordedAt = consumption.RecordedAt || consumption.recordedAt;
+                    let timeToShow;
+                    if (recordedAt) {
+                        // UTC string'ini doğru parse et
+                        const dateStr = String(recordedAt);
+                        const utcStr = dateStr.endsWith('Z') ? dateStr : (dateStr + 'Z');
+                        timeToShow = new Date(utcStr);
+                    } else {
+                        timeToShow = new Date();
+                    }
+                    // UTC tarihini Istanbul timezone'ına çevir
+                    lastEnergyTimeEl.textContent = timeToShow.toLocaleString('tr-TR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        timeZone: 'Europe/Istanbul'
+                    });
+                }
+                console.log("Energy updated:", energyUsed, "at", consumption.RecordedAt);
+            }
+
+            // Enerji tüketimi tablosuna yeni satır ekle
+            addEnergyConsumptionToTable(consumption);
+        });
+
+        // 🔹 Bağlantı Başlatma
+        connection.start().then(function () {
+            console.log("SignalR connected for device:", deviceId);
+            // Cihaz grubuna katıl - bu cihaza özel güncellemeleri almak için
+            if (deviceId) {
+                connection.invoke("JoinDeviceGroup", deviceId).then(function () {
+                    console.log("Joined device group:", deviceId);
+                }).catch(function (err) {
+                    console.error("Error joining device group:", err);
+                });
+            }
+        }).catch(function (err) {
+            console.error("SignalR connection error:", err);
+        });
+
+        // 🔹 Sensör Verileri Tablosuna Yeni Satır Ekleme
+        function addSensorDataToTable(sensorData) {
+            // Sensör verileri tablosunu ID ile bul
+            const sensorTable = document.querySelector('#sensorDataTable tbody');
+            if (!sensorTable) {
+                console.warn("Sensor table not found - ID: sensorDataTable");
+                return;
+            }
+
+            // RecordedAt varsa onu kullan, yoksa şu anki zamanı kullan
+            const recordedAt = sensorData.RecordedAt || sensorData.recordedAt;
+            let timeToShow;
+            if (recordedAt) {
+                // UTC string'ini doğru parse et
+                const dateStr = String(recordedAt);
+                const utcStr = dateStr.endsWith('Z') ? dateStr : (dateStr + 'Z');
+                timeToShow = new Date(utcStr);
+            } else {
+                timeToShow = new Date();
+            }
+            // UTC tarihini Istanbul timezone'ına çevir
+            const timeStr = timeToShow.toLocaleString('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'Europe/Istanbul'
+            });
+
+            // Verileri güvenli şekilde al (büyük/küçük harf uyumu)
+            const temperature = sensorData.Temperature !== undefined ? sensorData.Temperature : 
+                                sensorData.temperature !== undefined ? sensorData.temperature : null;
+            const voltage = sensorData.Voltage !== undefined ? sensorData.Voltage : 
+                           sensorData.voltage !== undefined ? sensorData.voltage : null;
+            const current = sensorData.Current !== undefined ? sensorData.Current : 
+                           sensorData.current !== undefined ? sensorData.current : null;
+
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${timeStr}</td>
+                <td>${temperature !== null && temperature !== undefined && !isNaN(temperature) ? parseFloat(temperature).toFixed(1) : '-'}</td>
+                <td>${voltage !== null && voltage !== undefined && !isNaN(voltage) ? parseFloat(voltage).toFixed(2) : '-'}</td>
+                <td>${current !== null && current !== undefined && !isNaN(current) ? parseFloat(current).toFixed(2) : '-'}</td>
+            `;
+
+            // En üste ekle
+            sensorTable.insertBefore(newRow, sensorTable.firstChild);
+
+            // Maksimum 30 satır tut (eski satırları sil)
+            while (sensorTable.children.length > 30) {
+                sensorTable.removeChild(sensorTable.lastChild);
+            }
+        }
+
+        // 🔹 Enerji Tüketimi Tablosuna Yeni Satır Ekleme
+        function addEnergyConsumptionToTable(consumption) {
+            // Enerji tüketimi tablosunu ID ile bul
+            const energyTable = document.querySelector('#energyConsumptionTable tbody');
+            if (!energyTable) {
+                console.warn("Energy consumption table not found - ID: energyConsumptionTable");
+                return;
+            }
+
+            // RecordedAt varsa onu kullan, yoksa şu anki zamanı kullan
+            const recordedAt = consumption.RecordedAt || consumption.recordedAt;
+            let timeToShow;
+            if (recordedAt) {
+                // UTC string'ini doğru parse et
+                const dateStr = String(recordedAt);
+                const utcStr = dateStr.endsWith('Z') ? dateStr : (dateStr + 'Z');
+                timeToShow = new Date(utcStr);
+            } else {
+                timeToShow = new Date();
+            }
+            // UTC tarihini Istanbul timezone'ına çevir
+            const timeStr = timeToShow.toLocaleString('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'Europe/Istanbul'
+            });
+
+            // Hesaplamalar: EnergyUsed varsa CostPerHour ve CarbonFootprint hesapla
+            const energyUsed = consumption.EnergyUsed || consumption.energyUsed || 0;
+            const costPerHour = consumption.CostPerHour || consumption.costPerHour || (energyUsed * 0.5); // 0.5 TL per kWh
+            const carbonFootprint = consumption.CarbonFootprint || consumption.carbonFootprint || (energyUsed * 0.4); // 0.4 kg CO2 per kWh
+
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${timeStr}</td>
+                <td>${energyUsed > 0 ? energyUsed.toFixed(2) : '-'}</td>
+                <td>${energyUsed > 0 ? costPerHour.toFixed(2) : '-'}</td>
+                <td>${energyUsed > 0 ? carbonFootprint.toFixed(3) : '-'}</td>
+            `;
+
+            // En üste ekle
+            energyTable.insertBefore(newRow, energyTable.firstChild);
+
+            // Maksimum 30 satır tut (eski satırları sil)
+            while (energyTable.children.length > 30) {
+                energyTable.removeChild(energyTable.lastChild);
+            }
+        }
+    </script>
+}

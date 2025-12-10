@@ -8,13 +8,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 
+// RabbitMQ mesaj otobüsü: JSON payload yayınlar (Topic exchange + queue bind).
 namespace AygazSmartEnergy.Services
 {
-    /// <summary>
-    /// RabbitMQ üzerinden JSON payload yayınlayan temel mesaj otobüsü implementasyonu.
-    /// EF Core tarafında kaydedilen enerji verileri gibi olayların
-    /// diğer mikro servislerle paylaşılmasını sağlar.
-    /// </summary>
     public class RabbitMqMessageBus : IMessageBus, IDisposable
     {
         private readonly ILogger<RabbitMqMessageBus> _logger;
@@ -41,12 +37,28 @@ namespace AygazSmartEnergy.Services
             {
                 using var channel = _connectionFactory.Value.CreateModel();
 
+                // Exchange tanımla (yoksa oluştur)
+                var exchangeName = _options.Exchange ?? "aygaz.sensors";
+                channel.ExchangeDeclare(
+                    exchange: exchangeName,
+                    type: ExchangeType.Topic,
+                    durable: true,
+                    autoDelete: false);
+
+                // Queue'yu tanımla
                 channel.QueueDeclare(
                     queue: queueName,
                     durable: true,
                     exclusive: false,
                     autoDelete: false,
                     arguments: null);
+
+                // Queue'yu exchange'e bind et
+                var routingKey = $"sensor.{queueName}"; // sensor.sensor-data
+                channel.QueueBind(
+                    queue: queueName,
+                    exchange: exchangeName,
+                    routingKey: routingKey);
 
                 var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
                 {
@@ -58,12 +70,12 @@ namespace AygazSmartEnergy.Services
                 properties.Persistent = true;
 
                 channel.BasicPublish(
-                    exchange: _options.Exchange ?? string.Empty,
-                    routingKey: queueName,
+                    exchange: exchangeName,
+                    routingKey: routingKey,
                     basicProperties: properties,
                     body: body);
 
-                _logger.LogInformation("RabbitMQ mesajı yayınlandı. Queue: {Queue}, Payload: {Payload}", queueName, json);
+                _logger.LogInformation("RabbitMQ mesajı yayınlandı. Exchange: {Exchange}, RoutingKey: {RoutingKey}, Queue: {Queue}", exchangeName, routingKey, queueName);
             }
             catch (Exception ex)
             {

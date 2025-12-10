@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using AygazSmartEnergy.Data;
 using AygazSmartEnergy.Models;
 
+// Enerji analizi: tüketim özetleri, trendler, verimlilik ve tahmin yardımcıları.
 namespace AygazSmartEnergy.Services
 {
     public class EnergyAnalysisService : IEnergyAnalysisService

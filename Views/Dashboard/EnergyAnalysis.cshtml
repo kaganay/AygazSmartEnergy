@@ -111,15 +111,39 @@
                         <ul class="list-group list-group-flush">
                             @foreach (var anomaly in Model.Anomalies.OrderByDescending(a => a.DetectedAt))
                             {
+                                var severityPercent = anomaly.Severity * 100;
+                                var severityBadge = severityPercent >= 80 ? "danger" : severityPercent >= 60 ? "warning" : "info";
+                                var severityText = severityPercent >= 80 ? "Kritik" : severityPercent >= 60 ? "Yüksek" : "Orta";
                                 <li class="list-group-item">
-                                    <div class="d-flex justify-content-between">
-                                        <div>
-                                            <strong>@anomaly.AnomalyType</strong>
-                                            <p class="mb-1 text-muted">@anomaly.Description</p>
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="flex-grow-1">
+                                            <strong class="d-block mb-1">
+                                                <i class="fas fa-exclamation-triangle text-@severityBadge me-2"></i>
+                                                @anomaly.AnomalyType
+                                            </strong>
+                                            <p class="mb-1 text-muted small">@anomaly.Description</p>
+                                            @if (anomaly.NormalValue > 0 && anomaly.ActualValue > 0)
+                                            {
+                                                var deviation = ((anomaly.ActualValue - anomaly.NormalValue) / anomaly.NormalValue) * 100;
+                                                <div class="small">
+                                                    <span class="text-muted">Normal Değer:</span> <strong>@anomaly.NormalValue.ToString("F2")</strong> | 
+                                                    <span class="text-muted">Gerçek Değer:</span> <strong class="text-@severityBadge">@anomaly.ActualValue.ToString("F2")</strong>
+                                                    <span class="badge bg-@severityBadge ms-2">@(deviation > 0 ? "+" : "")@deviation.ToString("F1")% sapma</span>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(anomaly.Recommendation))
+                                            {
+                                                <div class="alert alert-light border-start border-3 border-@severityBadge mt-2 mb-0 py-2 small">
+                                                    <i class="fas fa-lightbulb text-warning me-2"></i>
+                                                    <strong>Öneri:</strong> @anomaly.Recommendation
+                                                </div>
+                                            }
                                         </div>
-                                        <span class="badge bg-danger">@anomaly.Severity.ToString("F1")</span>
+                                        <span class="badge bg-@severityBadge ms-2">@severityText<br>@severityPercent.ToString("F0")%</span>
                                     </div>
-                                    <small class="text-muted">@anomaly.DetectedAt.ToString("g")</small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>@anomaly.DetectedAt.ToString("dd.MM.yyyy HH:mm:ss")
+                                    </small>
                                 </li>
                             }
                         </ul>
@@ -140,20 +164,56 @@
                     <i class="fas fa-tachometer-alt me-2 text-success"></i>Verimlilik Raporu
                 </div>
                 <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-6">Ortalama</dt>
-                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.AverageEfficiency.ToString("F1")%</dd>
-
-                        <dt class="col-sm-6">En iyi</dt>
-                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.PeakEfficiency.ToString("F1")%</dd>
-
-                        <dt class="col-sm-6">En düşük</dt>
-                        <dd class="col-sm-6 text-end">@Model.EfficiencyReport.LowEfficiency.ToString("F1")%</dd>
-                    </dl>
-                    <div class="text-center mt-3">
-                        <span class="badge bg-primary px-3 py-2">
-                            Verimlilik Sınıfı: @(string.IsNullOrWhiteSpace(Model.EfficiencyReport.EfficiencyGrade) ? "Belirlenmedi" : Model.EfficiencyReport.EfficiencyGrade)
+                    @{
+                        var avgEfficiency = Model.EfficiencyReport.AverageEfficiency;
+                        var efficiencyColor = avgEfficiency >= 90 ? "success" : avgEfficiency >= 80 ? "info" : avgEfficiency >= 70 ? "warning" : "danger";
+                        var efficiencyIcon = avgEfficiency >= 90 ? "fa-check-circle" : avgEfficiency >= 80 ? "fa-info-circle" : avgEfficiency >= 70 ? "fa-exclamation-circle" : "fa-times-circle";
+                    }
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold text-@efficiencyColor">
+                            @avgEfficiency.ToString("F1")<small class="fs-6">%</small>
+                        </div>
+                        <span class="badge bg-@efficiencyColor px-3 py-2 mt-2">
+                            <i class="fas @efficiencyIcon me-2"></i>
+                            @(string.IsNullOrWhiteSpace(Model.EfficiencyReport.EfficiencyGrade) ? "Belirlenmedi" : Model.EfficiencyReport.EfficiencyGrade)
                         </span>
+                    </div>
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-@efficiencyColor" role="progressbar" 
+                             style="width: @(avgEfficiency)%" 
+                             aria-valuenow="@avgEfficiency" 
+                             aria-valuenow="0" 
+                             aria-valuemax="100"></div>
+                    </div>
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-6">Ortalama Verimlilik</dt>
+                        <dd class="col-sm-6 text-end">
+                            <strong>@Model.EfficiencyReport.AverageEfficiency.ToString("F1")%</strong>
+                            <br><small class="text-muted">Hedef: 85%+</small>
+                        </dd>
+
+                        <dt class="col-sm-6">En İyi Performans</dt>
+                        <dd class="col-sm-6 text-end">
+                            <strong class="text-success">@Model.EfficiencyReport.PeakEfficiency.ToString("F1")%</strong>
+                        </dd>
+
+                        <dt class="col-sm-6">En Düşük Performans</dt>
+                        <dd class="col-sm-6 text-end">
+                            <strong class="text-danger">@Model.EfficiencyReport.LowEfficiency.ToString("F1")%</strong>
+                        </dd>
+                    </dl>
+                    <div class="alert alert-light border-start border-3 border-@efficiencyColor mt-3 mb-0 small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Yorum:</strong> 
+                        @if (avgEfficiency >= 90) {
+                            <text>Mükemmel verimlilik seviyesi. Cihaz optimal çalışıyor.</text>
+                        } else if (avgEfficiency >= 80) {
+                            <text>İyi verimlilik seviyesi. Küçük iyileştirmeler yapılabilir.</text>
+                        } else if (avgEfficiency >= 70) {
+                            <text>Orta verimlilik seviyesi. İyileştirme önerileri uygulanmalı.</text>
+                        } else {
+                            <text>Düşük verimlilik seviyesi. Acil iyileştirme gerekli.</text>
+                        }
                     </div>
                 </div>
             </div>
@@ -168,10 +228,67 @@
                         <ul class="list-group list-group-flush">
                             @foreach (var action in Model.Recommendations.Actions)
                             {
+                                var priorityColor = action.Priority == "High" ? "danger" : action.Priority == "Medium" ? "warning" : "info";
+                                var priorityIcon = action.Priority == "High" ? "fa-exclamation-circle" : action.Priority == "Medium" ? "fa-info-circle" : "fa-check-circle";
+                                var roi = action.ImplementationCost > 0 ? (action.PotentialSavings * 12 / action.ImplementationCost * 100) : 0;
                                 <li class="list-group-item">
-                                    <strong>@action.ActionName</strong>
-                                    <p class="mb-1 text-muted">@action.Description</p>
-                                    <small class="text-muted">Potansiyel kazanç: @action.PotentialSavings.ToString("C2")</small>
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="flex-grow-1">
+                                            <strong class="d-block mb-1">
+                                                <i class="fas @priorityIcon text-@priorityColor me-2"></i>
+                                                @action.ActionName
+                                            </strong>
+                                            <p class="mb-2 text-muted small">@action.Description</p>
+                                            
+                                            @if (action.Steps != null && action.Steps.Any())
+                                            {
+                                                <div class="small mb-2">
+                                                    <strong class="text-muted">Uygulama Adımları:</strong>
+                                                    <ol class="mb-0 mt-1 small">
+                                                        @foreach (var step in action.Steps)
+                                                        {
+                                                            <li>@step</li>
+                                                        }
+                                                    </ol>
+                                                </div>
+                                            }
+                                        </div>
+                                        <span class="badge bg-@priorityColor ms-2">@action.Priority</span>
+                                    </div>
+                                    <div class="row g-2 small">
+                                        <div class="col-6">
+                                            <strong class="text-success d-block">💰 Potansiyel Tasarruf</strong>
+                                            <span class="text-success">@action.PotentialSavings.ToString("C2")/ay</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong class="text-info d-block">⚡ Enerji Azaltma</strong>
+                                            <span class="text-info">@action.EnergyReduction.ToString("F1") kWh/ay</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong class="text-muted d-block">💵 Uygulama Maliyeti</strong>
+                                            <span>@action.ImplementationCost.ToString("C2")</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong class="text-muted d-block">⏱️ Geri Ödeme</strong>
+                                            <span>@action.PaybackPeriod ay</span>
+                                        </div>
+                                        @if (roi > 0)
+                                        {
+                                            <div class="col-12 mt-2">
+                                                <div class="alert alert-light border-start border-3 border-success mb-0 py-2">
+                                                    <strong class="text-success">📈 Yıllık Getiri (ROI):</strong> 
+                                                    <span class="text-success fw-bold">@roi.ToString("F1")%</span>
+                                                    @if (roi > 100) {
+                                                        <br><small class="text-success">✅ Yatırım 1 yılda kendini amorti eder</small>
+                                                    } else if (roi > 50) {
+                                                        <br><small class="text-info">ℹ️ İyi yatırım, 2 yılda geri dönüş</small>
+                                                    } else {
+                                                        <br><small class="text-warning">⚠️ Uzun vadeli yatırım</small>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
                                 </li>
                             }
                         </ul>

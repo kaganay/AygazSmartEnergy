@@ -5,70 +5,92 @@
 @model List<AygazSmartEnergy.Models.Device>
 
 <div class="container-fluid">
-    <h1 class="mt-4">Cihaz Yönetimi</h1>
-    <nav aria-label="breadcrumb" class="mb-4">
-        <div class="btn-group" role="group" aria-label="Breadcrumb">
-            <a class="btn btn-outline-primary" asp-controller="Dashboard" asp-action="Index">
-                <i class="fas fa-home me-2"></i>Dashboard
-            </a>
-            <span class="btn btn-primary active" aria-current="page">
-                <i class="fas fa-microchip me-2"></i>Cihazlar
-            </span>
+    <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+        <div>
+            <h2 class="mb-1">Cihaz Yönetimi</h2>
+            <p class="text-muted mb-0">Tüm cihazları görüntüleyin ve yönetin</p>
         </div>
-    </nav>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+            <i class="fas fa-plus me-2"></i>Yeni Cihaz
+        </button>
+    </div>
 
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-microchip me-1"></i>
-            Cihaz Listesi
-            <div class="float-end">
-                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
-                    <i class="fas fa-plus"></i> Yeni Cihaz Ekle
-                </button>
-            </div>
-        </div>
-        <div class="card-body">
+    <div class="card">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-bordered" id="devicesTable" width="100%" cellspacing="0">
-                    <thead>
+                <table class="table table-hover mb-0" id="devicesTable">
+                    <thead class="table-light">
                         <tr>
                             <th>Cihaz Adı</th>
                             <th>Tip</th>
                             <th>Konum</th>
                             <th>Durum</th>
-                            <th>Kurulum Tarihi</th>
-                            <th>Son Bakım</th>
-                            <th>İşlemler</th>
+                            <th>Kurulum</th>
+                            <th class="text-end">İşlemler</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var device in Model)
+                        @if (Model != null && Model.Any())
+                        {
+                            @foreach (var device in Model)
+                            {
+                                <tr data-device-id="@device.Id">
+                                    <td>
+                                        <div class="fw-semibold">@device.DeviceName</div>
+                                        @if (!string.IsNullOrEmpty(device.SerialNumber))
+                                        {
+                                            <small class="text-muted">SN: @device.SerialNumber</small>
+                                        }
+                                    </td>
+                                    <td>@device.DeviceType</td>
+                                    <td>@device.Location</td>
+                                    <td>
+                                        <span class="badge device-status-badge @(device.IsActive ? "bg-success" : "bg-secondary")">
+                                            @(device.IsActive ? "Aktif" : "Pasif")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">@device.InstalledAt.ToString("dd.MM.yyyy")</small>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a asp-controller="Dashboard" asp-action="DeviceDetails" asp-route-id="@device.Id" 
+                                               class="btn btn-outline-primary" title="Detaylar">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a asp-controller="Dashboard"
+                                               asp-action="EnergyForecast"
+                                               asp-route-deviceId="@device.Id"
+                                               asp-route-daysAhead="7"
+                                               class="btn btn-outline-success"
+                                               title="AI Enerji Tahmini (7 Gün)">
+                                                <i class="fas fa-chart-line"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-warning" 
+                                                    data-bs-toggle="modal" data-bs-target="#editDeviceModal" 
+                                                    data-device-id="@device.Id"
+                                                    data-device-name="@device.DeviceName"
+                                                    data-device-type="@device.DeviceType"
+                                                    data-device-location="@device.Location"
+                                                    title="Düzenle">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    onclick="confirmDeleteDevice(@device.Id, '@device.DeviceName')"
+                                                    title="Sil">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
                         {
                             <tr>
-                                <td>@device.DeviceName</td>
-                                <td>@device.DeviceType</td>
-                                <td>@device.Location</td>
-                                <td>
-                                    <span class="badge @(device.IsActive ? "bg-success" : "bg-danger")">
-                                        @(device.IsActive ? "Aktif" : "Pasif")
-                                    </span>
-                                </td>
-                                <td>@device.InstalledAt.ToString("dd.MM.yyyy")</td>
-                                <td>@(device.LastMaintenanceAt?.ToString("dd.MM.yyyy") ?? "Bakım yapılmadı")</td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <a asp-controller="Dashboard" asp-action="DeviceDetails" asp-route-id="@device.Id" 
-                                           class="btn btn-sm btn-primary">
-                                            <i class="fas fa-eye"></i> Detay
-                                        </a>
-                                        <a asp-controller="Dashboard" asp-action="EnergyAnalysis" asp-route-deviceId="@device.Id" 
-                                           class="btn btn-sm btn-info">
-                                            <i class="fas fa-chart-line"></i> Analiz
-                                        </a>
-                                        <button class="btn btn-sm btn-warning" onclick="toggleDevice(@device.Id, @device.IsActive.ToString().ToLower())">
-                                            <i class="fas fa-power-off"></i> @(device.IsActive ? "Kapat" : "Aç")
-                                        </button>
-                                    </div>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="fas fa-inbox fa-2x mb-3 d-block"></i>
+                                    Henüz cihaz eklenmemiş
                                 </td>
                             </tr>
                         }
@@ -80,42 +102,73 @@
 </div>
 
 <!-- Yeni Cihaz Ekleme Modal -->
-<div class="modal fade" id="addDeviceModal" tabindex="-1" aria-labelledby="addDeviceModalLabel" aria-hidden="true">
+<div class="modal fade" id="addDeviceModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addDeviceModalLabel">Yeni Cihaz Ekle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">Yeni Cihaz Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="addDeviceForm">
                 <div class="modal-body">
+                    <div id="deviceFormErrors" class="alert alert-danger d-none"></div>
+                    
                     <div class="mb-3">
-                        <label for="deviceName" class="form-label">Cihaz Adı</label>
-                        <input type="text" class="form-control" id="deviceName" name="deviceName" required>
+                        <label class="form-label">Cihaz Adı <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="deviceName" name="deviceName" required placeholder="Cihaz adını girin">
                     </div>
-                    <div class="mb-3">
-                        <label for="deviceType" class="form-label">Cihaz Tipi</label>
-                        <select class="form-select" id="deviceType" name="deviceType" required>
-                            <option value="">Seçiniz</option>
-                            <option value="Smart Meter">Akıllı Sayaç</option>
-                            <option value="Pump">Pompa</option>
-                            <option value="Lighting">Aydınlatma</option>
-                            <option value="HVAC">HVAC</option>
-                            <option value="Other">Diğer</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="location" class="form-label">Konum</label>
-                        <input type="text" class="form-control" id="location" name="location" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Açıklama</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Otomatik Anomali Tespiti:</strong> Cihaz eklendikten sonra, dışardan gönderilen sensör verileri (voltaj, akım, sıcaklık, vb.) otomatik olarak Python ML servisi tarafından analiz edilecek ve olası hata/arıza durumları tespit edilerek uyarı oluşturulacaktır.
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary">Cihaz Ekle</button>
+                    <button type="submit" class="btn btn-primary" id="submitDeviceBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-2"></span>
+                        Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Düzenleme Modal -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cihaz Düzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editDeviceForm">
+                <div class="modal-body">
+                    <div id="editDeviceFormErrors" class="alert alert-danger d-none"></div>
+                    <input type="hidden" id="editDeviceId" name="deviceId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Cihaz Adı <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editDeviceName" name="deviceName" required placeholder="Cihaz adını girin">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Cihaz Tipi</label>
+                        <input type="text" class="form-control" id="editDeviceType" name="deviceType" placeholder="Cihaz tipini girin">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Konum</label>
+                        <input type="text" class="form-control" id="editDeviceLocation" name="location" placeholder="Konum bilgisi">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-warning" id="updateDeviceBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-2"></span>
+                        Güncelle
+                    </button>
                 </div>
             </form>
         </div>
@@ -124,49 +177,106 @@
 
 @section Scripts {
     <script>
-        // Cihaz durumunu değiştir
-        function toggleDevice(deviceId, isActive) {
-            const action = isActive ? 'deactivate' : 'activate';
-            const actionText = isActive ? 'kapatmak' : 'açmak';
-            
-            if (confirm(`Cihazı ${actionText} istediğinizden emin misiniz?`)) {
-                fetch(`/api/iot/devices/${deviceId}/${action}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Hata: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Bir hata oluştu');
-                });
-            }
-        }
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/energyHub")
+            .build();
 
-        // Yeni cihaz ekleme formu
+        connection.on("ReceiveDeviceStatus", (deviceStatus) => {
+            if (!deviceStatus) return;
+            const deviceId = deviceStatus.deviceId || deviceStatus.DeviceId;
+            const row = document.querySelector(`tr[data-device-id="${deviceId}"]`);
+            if (row) {
+                const statusCell = row.querySelector('.device-status-badge');
+                const isActive = deviceStatus.isActive || deviceStatus.IsActive;
+                if (statusCell) {
+                    statusCell.className = `badge ${isActive ? 'bg-success' : 'bg-secondary'}`;
+                    statusCell.textContent = isActive ? 'Aktif' : 'Pasif';
+                }
+            }
+        });
+
+        connection.start().catch(err => console.error("SignalR hatası:", err));
+
         document.getElementById('addDeviceForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            const submitBtn = document.getElementById('submitDeviceBtn');
+            const spinner = submitBtn.querySelector('.spinner-border');
+            const errorDiv = document.getElementById('deviceFormErrors');
+            
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            errorDiv.classList.add('d-none');
             
             const formData = new FormData(this);
             const deviceData = {
                 deviceName: formData.get('deviceName'),
-                deviceType: formData.get('deviceType'),
-                location: formData.get('location'),
-                description: formData.get('description')
+                deviceType: "Other",
+                location: "Belirtilmedi",
+                isActive: true
             };
 
             fetch('/api/iot/devices', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(deviceData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    errorDiv.textContent = data.message || 'Bir hata oluştu';
+                    errorDiv.classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = 'Bağlantı hatası oluştu';
+                errorDiv.classList.remove('d-none');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                spinner.classList.add('d-none');
+            });
+        });
+
+        // 🔹 Düzenleme Modal: Cihaz bilgilerini modal'a yükle
+        const editDeviceModal = document.getElementById('editDeviceModal');
+        editDeviceModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const deviceId = button.getAttribute('data-device-id');
+            const deviceName = button.getAttribute('data-device-name');
+            const deviceType = button.getAttribute('data-device-type');
+            const deviceLocation = button.getAttribute('data-device-location');
+
+            document.getElementById('editDeviceId').value = deviceId;
+            document.getElementById('editDeviceName').value = deviceName || '';
+            document.getElementById('editDeviceType').value = deviceType || '';
+            document.getElementById('editDeviceLocation').value = deviceLocation || '';
+        });
+
+        // 🔹 Düzenleme Formu: Cihaz bilgilerini güncelle
+        document.getElementById('editDeviceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('updateDeviceBtn');
+            const spinner = submitBtn.querySelector('.spinner-border');
+            const errorDiv = document.getElementById('editDeviceFormErrors');
+            
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            errorDiv.classList.add('d-none');
+            
+            const deviceId = document.getElementById('editDeviceId').value;
+            const deviceData = {
+                deviceName: document.getElementById('editDeviceName').value,
+                deviceType: document.getElementById('editDeviceType').value || 'Other',
+                location: document.getElementById('editDeviceLocation').value || 'Belirtilmedi'
+            };
+
+            fetch(`/Dashboard/UpdateDevice/${deviceId}`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
                 },
                 body: JSON.stringify(deviceData)
             })
@@ -175,20 +285,62 @@
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert('Hata: ' + data.message);
+                    errorDiv.textContent = data.message || 'Bir hata oluştu';
+                    errorDiv.classList.remove('d-none');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Bir hata oluştu');
+                errorDiv.textContent = 'Bağlantı hatası oluştu';
+                errorDiv.classList.remove('d-none');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                spinner.classList.add('d-none');
             });
         });
+
+        // 🔹 Silme Onayı: Cihazı silmek için onay iste
+        function confirmDeleteDevice(deviceId, deviceName) {
+            if (confirm(`"${deviceName}" cihazını silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz!`)) {
+                deleteDevice(deviceId);
+            }
+        }
+
+        // 🔹 Silme İşlemi: Cihazı sil
+        function deleteDevice(deviceId) {
+            fetch(`/Dashboard/DeleteDevice/${deviceId}`, {
+                method: 'POST',
+                headers: { 
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Satırı tablodan kaldır
+                    const row = document.querySelector(`tr[data-device-id="${deviceId}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+                    // Eğer tablo boşaldıysa mesaj göster
+                    const tbody = document.querySelector('#devicesTable tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <i class="fas fa-inbox fa-2x mb-3 d-block"></i>
+                                    Henüz cihaz eklenmemiş
+                                </td>
+                            </tr>
+                        `;
+                    }
+                } else {
+                    alert(data.message || 'Cihaz silinirken bir hata oluştu');
+                }
+            })
+            .catch(error => {
+                alert('Bağlantı hatası oluştu');
+            });
+        }
     </script>
 }
-
-
-
-
-
-
-

@@ -84,60 +84,96 @@
             @if (Model.Any())
             {
                 <div class="table-responsive">
-                    <table class="table table-bordered" id="alertsTable" width="100%" cellspacing="0">
-                        <thead>
+                    <table class="table table-striped table-hover" id="alertsTable" width="100%" cellspacing="0">
+                        <thead class="table-dark">
                             <tr>
-                                <th>
-                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" title="Tümünü Seç">
                                 </th>
-                                <th>Başlık</th>
-                                <th>Mesaj</th>
-                                <th>Cihaz</th>
-                                <th>Tip</th>
-                                <th>Şiddet</th>
-                                <th>Tarih</th>
-                                <th>Durum</th>
-                                <th>İşlemler</th>
+                                <th style="width: 150px;">Başlık</th>
+                                <th style="width: 250px;">Mesaj</th>
+                                <th style="width: 150px;">Cihaz</th>
+                                <th style="width: 120px;">Tip</th>
+                                <th style="width: 100px;">Şiddet</th>
+                                <th style="width: 150px;">Tarih/Saat</th>
+                                <th style="width: 100px;">Durum</th>
+                                <th style="width: 120px;" class="text-center">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var alert in Model)
                             {
-                                <tr class="@(alert.IsResolved ? "" : "table-warning")">
-                                    <td>
+                                <tr class="@(alert.IsResolved ? "" : "table-warning")" data-alert-id="@alert.Id">
+                                    <td class="text-center">
                                         <input type="checkbox" class="alert-checkbox" value="@alert.Id">
                                     </td>
-                                    <td>@alert.Title</td>
-                                    <td>@alert.Message</td>
-                                    <td>@(alert.Device?.DeviceName ?? "Genel")</td>
-                                    <td>@alert.AlertType</td>
+                                    <td>
+                                        <strong class="text-primary">@alert.Title</strong>
+                                    </td>
+                                    <td>
+                                        <div class="text-truncate" style="max-width: 250px;" title="@alert.Message">
+                                            @(alert.Message?.Length > 50 ? alert.Message.Substring(0, 50) + "..." : alert.Message ?? "-")
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">@(alert.Device?.DeviceName ?? "Genel")</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">@alert.AlertType</small>
+                                    </td>
                                     <td>
                                         <span class="badge @(alert.Severity switch {
                                             "Critical" => "bg-danger",
-                                            "High" => "bg-warning",
+                                            "High" => "bg-warning text-dark",
                                             "Medium" => "bg-info",
                                             "Low" => "bg-secondary",
                                             _ => "bg-secondary"
-                                        })">
-                                            @alert.Severity
+                                        })" style="font-size: 0.85em;">
+                                            @(alert.Severity switch {
+                                                "Critical" => "Kritik",
+                                                "High" => "Yüksek",
+                                                "Medium" => "Orta",
+                                                "Low" => "Düşük",
+                                                _ => alert.Severity
+                                            })
                                         </span>
                                     </td>
-                                    <td>@alert.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>
-                                        <span class="badge @(alert.IsResolved ? "bg-success" : "bg-warning")">
-                                            @(alert.IsResolved ? "Çözüldü" : "Açık")
-                                        </span>
+                                        @{
+                                            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+                                            var createdUtc = DateTime.SpecifyKind(alert.CreatedAt, DateTimeKind.Utc);
+                                            var createdTr = TimeZoneInfo.ConvertTimeFromUtc(createdUtc, tz);
+                                        }
+                                        <small>
+                                            <i class="fas fa-calendar-alt text-muted"></i>
+                                            @createdTr.ToString("dd.MM.yyyy")
+                                            <br>
+                                            <i class="fas fa-clock text-muted"></i>
+                                            @createdTr.ToString("HH:mm:ss")
+                                        </small>
                                     </td>
                                     <td>
-                                        <div class="btn-group" role="group">
+                                        <span class="badge @(alert.IsResolved ? "bg-success" : "bg-warning text-dark")">
+                                            @if (alert.IsResolved)
+                                            {
+                                                <i class="fas fa-check-circle"></i> <text>Çözüldü</text>
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-exclamation-circle"></i> <text>Açık</text>
+                                            }
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm" role="group">
                                             @if (!alert.IsResolved)
                                             {
-                                                <button class="btn btn-sm btn-success" onclick="resolveAlert(@alert.Id)">
-                                                    <i class="fas fa-check"></i> Çöz
+                                                <button class="btn btn-success" onclick="resolveAlert(@alert.Id)" title="Uyarıyı Çöz">
+                                                    <i class="fas fa-check"></i>
                                                 </button>
                                             }
-                                            <button class="btn btn-sm btn-danger" onclick="deleteAlert(@alert.Id)">
-                                                <i class="fas fa-trash"></i> Sil
+                                            <button class="btn btn-danger" onclick="deleteAlert(@alert.Id)" title="Uyarıyı Sil">
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -160,24 +196,67 @@
 
 <!-- Uyarı Çözme Modal -->
 <div class="modal fade" id="resolveAlertModal" tabindex="-1" aria-labelledby="resolveAlertModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="resolveAlertModalLabel">Uyarıyı Çöz</h5>
+                <h5 class="modal-title" id="resolveAlertModalLabel">
+                    <i class="fas fa-check-circle me-2"></i>Uyarıyı Çöz
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="resolveAlertForm">
                 <div class="modal-body">
                     <input type="hidden" id="alertId" name="alertId">
+                    
+                    <!-- ML Tavsiyeleri Bölümü -->
+                    <div class="card border-primary mb-3" id="recommendationsCard">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-brain me-2"></i>
+                            <strong>🤖 AI/ML Tavsiyeleri</strong>
+                            <span class="badge bg-light text-primary ms-2" id="alertTypeBadge"></span>
+                        </div>
+                        <div class="card-body">
+                            <div id="recommendationsLoading" class="text-center py-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Yükleniyor...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Tavsiyeler yükleniyor...</p>
+                            </div>
+                            <div id="recommendationsList" style="display: none;">
+                                <p class="text-muted small mb-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Aşağıdaki tavsiyeler ML servisi tarafından uyarı tipine göre önerilmiştir:
+                                </p>
+                                <ul class="list-group list-group-flush" id="recommendationsItems">
+                                    <!-- Tavsiyeler buraya eklenecek -->
+                                </ul>
+                            </div>
+                            <div id="recommendationsError" class="alert alert-warning" style="display: none;">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Tavsiyeler yüklenirken bir hata oluştu. Genel kontrol yapmanız önerilir.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Alınan Aksiyon Bölümü -->
                     <div class="mb-3">
-                        <label for="actionTaken" class="form-label">Alınan Aksiyon</label>
-                        <textarea class="form-control" id="actionTaken" name="actionTaken" rows="3" required 
-                                  placeholder="Uyarıyı çözmek için ne yaptığınızı açıklayın..."></textarea>
+                        <label for="actionTaken" class="form-label">
+                            <i class="fas fa-clipboard-check me-2"></i>Alınan Aksiyon
+                        </label>
+                        <textarea class="form-control" id="actionTaken" name="actionTaken" rows="4" required 
+                                  placeholder="Uyarıyı çözmek için ne yaptığınızı detaylı olarak açıklayın..."></textarea>
+                        <small class="form-text text-muted">
+                            Yukarıdaki tavsiyelerden hangilerini uyguladığınızı belirtin.
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-success">Uyarıyı Çöz</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>İptal
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Uyarıyı Çöz
+                    </button>
                 </div>
             </form>
         </div>
@@ -189,8 +268,83 @@
         // Uyarı çözme
         function resolveAlert(alertId) {
             document.getElementById('alertId').value = alertId;
+            document.getElementById('actionTaken').value = '';
+            
+            // Modal'ı göster
             const modal = new bootstrap.Modal(document.getElementById('resolveAlertModal'));
             modal.show();
+            
+            // Tavsiyeleri yükle
+            loadRecommendations(alertId);
+        }
+        
+        // ML tavsiyelerini yükle
+        function loadRecommendations(alertId) {
+            // Loading göster
+            document.getElementById('recommendationsLoading').style.display = 'block';
+            document.getElementById('recommendationsList').style.display = 'none';
+            document.getElementById('recommendationsError').style.display = 'none';
+            document.getElementById('recommendationsItems').innerHTML = '';
+            
+            fetch(`/Dashboard/GetAlertRecommendations?alertId=${alertId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('recommendationsLoading').style.display = 'none';
+                    
+                    if (data.success && data.recommendations && data.recommendations.length > 0) {
+                        // Alert tipi badge'i güncelle
+                        if (data.alertType) {
+                            document.getElementById('alertTypeBadge').textContent = data.alertType;
+                        }
+                        
+                        // Tavsiyeleri göster
+                        const recommendationsList = document.getElementById('recommendationsItems');
+                        data.recommendations.forEach((rec, index) => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.innerHTML = `
+                                <div class="d-flex align-items-start">
+                                    <span class="badge bg-primary me-2 mt-1">${index + 1}</span>
+                                    <div class="flex-grow-1">
+                                        <span class="small">${rec}</span>
+                                    </div>
+                                </div>
+                            `;
+                            recommendationsList.appendChild(li);
+                        });
+                        
+                        document.getElementById('recommendationsList').style.display = 'block';
+                    } else {
+                        // Fallback tavsiyeler
+                        const recommendationsList = document.getElementById('recommendationsItems');
+                        const fallbackRecs = [
+                            '🔍 Genel sistem kontrolü yapın',
+                            '📊 Uyarı kaynağını belirleyin',
+                            '⚙️ İlgili cihazları kontrol edin'
+                        ];
+                        
+                        fallbackRecs.forEach((rec, index) => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.innerHTML = `
+                                <div class="d-flex align-items-start">
+                                    <span class="badge bg-secondary me-2 mt-1">${index + 1}</span>
+                                    <div class="flex-grow-1">
+                                        <span class="small">${rec}</span>
+                                    </div>
+                                </div>
+                            `;
+                            recommendationsList.appendChild(li);
+                        });
+                        
+                        document.getElementById('recommendationsList').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading recommendations:', error);
+                    document.getElementById('recommendationsLoading').style.display = 'none';
+                    document.getElementById('recommendationsError').style.display = 'block';
+                });
         }
 
         // Uyarı silme
@@ -223,6 +377,17 @@
             
             const alertId = document.getElementById('alertId').value;
             const actionTaken = document.getElementById('actionTaken').value;
+            
+            if (!actionTaken || actionTaken.trim() === '') {
+                alert('Lütfen alınan aksiyonu açıklayın');
+                return;
+            }
+
+            // Submit butonunu devre dışı bırak
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>İşleniyor...';
 
             fetch(`/Dashboard/ResolveAlert`, {
                 method: 'POST',
@@ -230,21 +395,36 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: alertId,
+                    id: parseInt(alertId),
                     actionTaken: actionTaken
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
+                    // Modal'ı kapat
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('resolveAlertModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    // Sayfayı yenile
                     location.reload();
                 } else {
-                    alert('Hata: ' + data.message);
+                    alert('Hata: ' + (data.message || 'Uyarı çözülürken bir hata oluştu'));
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Bir hata oluştu');
+                alert('Bir hata oluştu: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
             });
         });
 
@@ -315,20 +495,267 @@
             window.location.href = window.location.pathname;
         }
 
-        // SignalR bağlantısı
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/energyHub")
-            .build();
+        // SignalR bağlantısı - canlı uyarı güncellemeleri için
+        let connection = null;
+        if (typeof signalR !== 'undefined') {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/energyHub")
+                .withAutomaticReconnect() // Otomatik yeniden bağlanma
+                .build();
 
-        connection.on("ReceiveAlert", (alert) => {
-            console.log("Yeni uyarı:", alert);
-            // Uyarı listesini güncelle
-            location.reload();
+            // Yeni uyarı bildirimi - bağlantı kurulmadan önce tanımla
+            connection.on("ReceiveAlert", (alert) => {
+                if (!alert) {
+                    console.warn("Boş alert alındı");
+                    return;
+                }
+                console.log("Yeni uyarı alındı:", alert);
+                
+                // Toast bildirimi göster
+                showAlertNotification(alert);
+                
+                // Uyarı tablosuna ekle
+                addAlertToTable(alert);
+                
+                // Uyarı sayısını güncelle (eğer fonksiyon varsa)
+                if (typeof updateUnresolvedCount === 'function') {
+                    updateUnresolvedCount();
+                }
+            });
+
+        // Uyarı güncelleme bildirimi
+        connection.on("ReceiveAlertUpdate", (alertUpdate) => {
+            if (!alertUpdate) return;
+            console.log("Uyarı güncellendi:", alertUpdate);
+            
+            // Uyarı tablosundaki ilgili satırı güncelle
+            if (typeof updateAlertInTable === 'function') {
+                updateAlertInTable(alertUpdate);
+            }
         });
 
-        connection.start().catch(err => console.error(err.toString()));
+            // Bağlantı başlat
+            connection.start().then(function () {
+                console.log("✓ SignalR bağlantısı kuruldu - Alert sayfası");
+            }).catch(function (err) {
+                console.error("✗ SignalR bağlantı hatası:", err);
+            });
+        } else {
+            console.warn("⚠ SignalR yüklenmedi. Canlı güncellemeler çalışmayacak.");
+        }
+
+        // Yardımcı fonksiyonlar
+        function showAlertNotification(alert) {
+            const severity = alert.severity || alert.Severity || 'Medium';
+            const bgColor = severity === 'Critical' ? 'danger' : 
+                           severity === 'High' ? 'warning' : 
+                           severity === 'Medium' ? 'info' : 'secondary';
+            
+            // Toast bildirimi oluştur (Bootstrap 5)
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${bgColor} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${alert.title || alert.Title}</strong><br>
+                        ${alert.message || alert.Message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '9999';
+                document.body.appendChild(toastContainer);
+            }
+            
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast, { delay: 5000 });
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        }
+
+        function addAlertToTable(alert) {
+            const tableBody = document.querySelector('#alertsTable tbody');
+            if (!tableBody) {
+                // Eğer tablo yoksa, sayfayı yenile
+                console.log("Tablo bulunamadı, sayfa yenileniyor...");
+                setTimeout(() => location.reload(), 1000);
+                return;
+            }
+            
+            const severity = alert.severity || alert.Severity || 'Medium';
+            const severityClass = severity === 'Critical' ? 'bg-danger' : 
+                                 severity === 'High' ? 'bg-warning text-dark' : 
+                                 severity === 'Medium' ? 'bg-info' : 'bg-secondary';
+            
+            const alertId = alert.id || alert.Id;
+            const alertTitle = alert.title || alert.Title || 'Başlıksız Uyarı';
+            const alertMessage = alert.message || alert.Message || '';
+            const alertType = alert.alertType || alert.AlertType || '';
+            const deviceName = alert.deviceName || alert.DeviceName || 'Bilinmeyen Cihaz';
+            const isResolved = alert.isResolved || alert.IsResolved || false;
+            const createdAt = alert.createdAt || alert.CreatedAt;
+            
+            // Tarih formatını parse et
+            let formattedDate = '';
+            let formattedTime = '';
+            if (createdAt) {
+                try {
+                    const date = new Date(createdAt);
+                    formattedDate = date.toLocaleDateString('tr-TR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+                    formattedTime = date.toLocaleTimeString('tr-TR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } catch (e) {
+                    console.error("Tarih parse hatası:", e);
+                    formattedDate = new Date().toLocaleDateString('tr-TR');
+                    formattedTime = new Date().toLocaleTimeString('tr-TR');
+                }
+            } else {
+                const now = new Date();
+                formattedDate = now.toLocaleDateString('tr-TR');
+                formattedTime = now.toLocaleTimeString('tr-TR');
+            }
+            
+            // Şiddet Türkçe çevirisi
+            const severityText = severity === 'Critical' ? 'Kritik' : 
+                                severity === 'High' ? 'Yüksek' : 
+                                severity === 'Medium' ? 'Orta' : 
+                                severity === 'Low' ? 'Düşük' : severity;
+            
+            // Mesaj kısaltma
+            const shortMessage = alertMessage.length > 50 ? alertMessage.substring(0, 50) + '...' : alertMessage;
+            
+            const row = document.createElement('tr');
+            row.setAttribute('data-alert-id', alertId);
+            if (!isResolved) {
+                row.classList.add('table-warning');
+            }
+            
+            row.innerHTML = `
+                <td class="text-center">
+                    <input type="checkbox" class="alert-checkbox" value="${alertId}">
+                </td>
+                <td>
+                    <strong class="text-primary">${alertTitle}</strong>
+                </td>
+                <td>
+                    <div class="text-truncate" style="max-width: 250px;" title="${alertMessage}">
+                        ${shortMessage}
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-info">${deviceName}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${alertType}</small>
+                </td>
+                <td>
+                    <span class="badge ${severityClass}" style="font-size: 0.85em;">${severityText}</span>
+                </td>
+                <td>
+                    <small>
+                        <i class="fas fa-calendar-alt text-muted"></i> ${formattedDate}
+                        ${formattedTime ? `<br><i class="fas fa-clock text-muted"></i> ${formattedTime}` : ''}
+                    </small>
+                </td>
+                <td>
+                    <span class="badge ${isResolved ? 'bg-success' : 'bg-warning text-dark'}">
+                        ${isResolved ? '<i class="fas fa-check-circle"></i> Çözüldü' : '<i class="fas fa-exclamation-circle"></i> Açık'}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <div class="btn-group btn-group-sm" role="group">
+                        ${!isResolved ? `
+                            <button class="btn btn-success" onclick="resolveAlert(${alertId})" title="Uyarıyı Çöz">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn btn-danger" onclick="deleteAlert(${alertId})" title="Uyarıyı Sil">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            // En üste ekle
+            tableBody.insertBefore(row, tableBody.firstChild);
+            
+            // Eğer tablo boşsa, "Henüz uyarı bulunmuyor" mesajını kaldır
+            const emptyMessage = tableBody.parentElement.querySelector('.text-center.text-muted');
+            if (emptyMessage) {
+                emptyMessage.remove();
+            }
+        }
+
+        function updateAlertInTable(alertUpdate) {
+            const alertId = alertUpdate.id || alertUpdate.Id;
+            const row = document.querySelector(`tr[data-alert-id="${alertId}"]`);
+            if (!row) {
+                console.log(`Alert ${alertId} tabloda bulunamadı, sayfa yenileniyor...`);
+                setTimeout(() => location.reload(), 500);
+                return;
+            }
+            
+            if (alertUpdate.isResolved || alertUpdate.IsResolved) {
+                // Durum sütununu güncelle (8. sütun)
+                const statusCell = row.querySelector('td:nth-child(8)');
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Çözüldü</span>';
+                }
+                // İşlemler sütununu güncelle (9. sütun)
+                const actionCell = row.querySelector('td:nth-child(9)');
+                if (actionCell) {
+                    actionCell.innerHTML = `
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-danger" onclick="deleteAlert(${alertId})" title="Uyarıyı Sil">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+                // Row'dan table-warning class'ını kaldır
+                row.classList.remove('table-warning');
+            }
+            if (alertUpdate.isRead || alertUpdate.IsRead) {
+                row.classList.add('table-secondary');
+            }
+            
+            if (typeof updateUnresolvedCount === 'function') {
+                updateUnresolvedCount();
+            }
+        }
+
+        function updateUnresolvedCount() {
+            const unresolvedRows = document.querySelectorAll('#alertsTable tbody tr:not([style*="display: none"]) .badge.bg-warning').length;
+            const countBadge = document.querySelector('.unresolved-count');
+            if (countBadge) {
+                countBadge.textContent = `${unresolvedRows} Açık Uyarı`;
+            }
+        }
+
+        // Alert tablosunu yenile (sayfa yenilemeden) - artık kullanılmıyor, addAlertToTable yeterli
+        function refreshAlertsTable() {
+            // Bu fonksiyon artık gerekli değil, addAlertToTable zaten yeni alert'i ekliyor
+            console.log("refreshAlertsTable çağrıldı - addAlertToTable zaten alert'i ekliyor");
+        }
     </script>
 }
+
+
 
 
 

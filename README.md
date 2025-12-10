@@ -22,47 +22,35 @@ Aygaz Smart Energy, IoT sensörleri ve yapay zeka teknolojilerini kullanarak ger
 
 ## 🚀 Kurulum
 
-### 1. Veritabanı Kurulumu
-```bash
-# Migration oluştur
-dotnet ef migrations add InitialCreate
+### Docker ile Çalıştırma (Önerilen)
 
-# Veritabanını güncelle
-dotnet ef database update
+```bash
+# Proje dizinine git
+cd C:\Users\kagan\Projects\AygazSmartEnergy
+
+# Docker container'ları build et
+docker-compose build
+
+# Container'ları başlat
+docker-compose up -d
+
+# Log'ları izle
+docker-compose logs -f dotnet-api
 ```
 
-### 2. Python ML Servisi Kurulumu
+**Erişim:**
+- Web UI: http://localhost:5001
+- RabbitMQ Management: http://localhost:15672 (guest/guest)
+- Python ML Service: http://localhost:5000
+
+### Test Verisi Gönderme
+
 ```bash
-cd PythonMLService
-pip install -r requirements.txt
-python app.py
+# Python script ile test verisi gönder
+python canli_veri_uret.py
 ```
 
-### 3. Projeyi Çalıştır
-```bash
-dotnet run
-```
-
-### 4. Redis Backplane
-```bash
-# Redis'i Docker ile ayağa kaldır
-docker run -d --name aygaz-redis -p 6379:6379 redis:7-alpine
-```
-
-### 5. RabbitMQ
-```bash
-# RabbitMQ'yu Docker ile ayağa kaldır
-docker run -d --name aygaz-rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management
-```
-
-### 6. Docker ile Çalıştırma
-```bash
-# İmajı oluştur
-docker build -t aygaz-smart-energy .
-
-# Konteyneri çalıştır (port 8080)
-docker run -d -p 8080:8080 --name aygaz-smart-energy-app aygaz-smart-energy
-```
+Detaylı kurulum ve kullanım için **`MIMARI_VE_API_DOKUMANTASYONU.md`** dosyasına bakın.
 
 ## 📊 Özellikler
 - ✅ Gerçek zamanlı enerji izleme
@@ -75,17 +63,14 @@ docker run -d -p 8080:8080 --name aygaz-smart-energy-app aygaz-smart-energy
 
 ## 🔌 API Endpoints
 
-### IoT Endpoints
-- `POST /api/iot/sensor-data` - Sensör verisi gönder
-- `GET /api/iot/sensor-data/latest` - Son sensör verileri
-- `GET /api/iot/devices` - Cihaz listesi
+Detaylı API dokümantasyonu için **`MIMARI_VE_API_DOKUMANTASYONU.md`** dosyasına bakın.
 
-### Cihaz Endpoints
-- `GET /api/device/status` - Cihazın güncel durumunu görüntüle
-
-### Mesajlaşma
-- `POST /api/energyapi/upload` çağrısı, enerji verisini kaydettikten sonra RabbitMQ `sensor-data` kuyruğuna JSON mesaj yayınlar.
-- Kuyruk, başka bir servis tarafından tüketilerek raporlama/analitik modüllerine aktarılabilir.
+### Önemli Endpoint'ler
+- `POST /api/IoT/sensor-data` - Sensör verisi gönder
+- `GET /api/IoT/sensor-data/latest` - Son sensör verileri
+- `GET /api/IoT/devices` - Cihaz listesi
+- `POST /api/EnergyApi/ml-results` - ML servisinden sonuçları al
+- `GET /Dashboard/EnergyForecast` - AI enerji tahmini
 
 ## 🖥️ Dashboard Özeti
 - Canlı sıcaklık, voltaj, fan ve cihaz durum kartları
@@ -101,12 +86,22 @@ docker run -d -p 8080:8080 --name aygaz-smart-energy-app aygaz-smart-energy
 ## 🔄 Gerçek Zamanlı Katman
 - **SignalR + Redis**: Tüm dashboard istemcilerine canlı sensör verisi dağıtılır. Redis backplane, birden fazla uygulama örneği çalıştırıldığında mesajların paylaşılmasını sağlar.
 - **RabbitMQ**: Mikro servislerin sensör verilerini asenkron olarak işlemesine imkân tanır. `RabbitMqOptions` ile yapılandırılır, `RabbitMqMessageBus` servis tarafından kuyruk/mesaj yönetimi yapılır.
-- **Akış**: IoT cihazı → `EnergyApiController.UploadData` → EF Core → RabbitMQ mesajı → SignalR hub → Redis → Tüm dashboard istemcileri.
+- **Akış**: IoT cihazı → `IoTController.PostSensorData` → EF Core → SignalR hub → RabbitMQ mesajı → Redis → Tüm dashboard istemcileri.
+
+## 📚 Dokümantasyon
+
+### Ana Dokümantasyon
+- **`MIMARI_VE_API_DOKUMANTASYONU.md`** ⭐ - Kapsamlı mimari ve API dokümantasyonu
+- **`ESP8266_SETUP.md`** - ESP8266 IoT cihaz kurulumu
+
+### Test ve Kullanım
+- **`canli_veri_uret.py`** - Canlı test verisi gönderme scripti
 
 ## 📝 Notlar
-- Proje halen geliştirme aşamasındadır
-- Bazı özellikler test aşamasındadır
-- Python ML servisi opsiyoneldir, olmadan da çalışır
+- Tüm zaman damgaları UTC olarak saklanır, UI'da Europe/Istanbul'a çevrilir
+- Python ML servisi en az 7 günlük veri bekler (enerji tahmini için)
+- RabbitMQ mesajları asenkron işlenir (fire-and-forget pattern)
+- SignalR bağlantıları otomatik yeniden bağlanır
 
 ## 👨‍💻 Geliştirici
 Kağan - Aygaz Ar-Ge Başvurusu

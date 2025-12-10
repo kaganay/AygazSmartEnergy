@@ -3,11 +3,158 @@
     ViewData["Title"] = "Giriş Yap";
 }
 
-<div class="container py-4" style="max-width: 520px;">
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4">
-            <h2 class="mb-3 text-center"><i class="fas fa-sign-in-alt me-2"></i>Giriş Yap</h2>
-            <p class="text-muted text-center">Hesabınıza erişmek için e-posta ve şifrenizi girin.</p>
+<style>
+    .login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background-size: cover;
+        background-position: center;
+        overflow: hidden;
+    }
+
+    .login-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        animation: pulse 15s ease-in-out infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    .login-card {
+        position: relative;
+        z-index: 1;
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        width: 100%;
+        max-width: 450px;
+    }
+
+    .login-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+    }
+
+    .login-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .login-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+
+    .login-body {
+        padding: 2.5rem 2rem;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 0.75rem;
+        font-weight: 500;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .floating-particles {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        z-index: 0;
+    }
+
+    .particle {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        animation: float 20s infinite;
+    }
+
+    @@keyframes float {
+        0% {
+            transform: translateY(100vh) rotate(0deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-100vh) rotate(360deg);
+            opacity: 0;
+        }
+    }
+</style>
+
+<div class="login-container">
+    <div class="floating-particles">
+        @for (int i = 0; i < 20; i++)
+        {
+            <div class="particle" style="
+                left: @((i * 5) % 100)%;
+                width: @(5 + (i % 10))px;
+                height: @(5 + (i % 10))px;
+                animation-delay: @(i * 0.5)s;
+                animation-duration: @(15 + (i % 10))s;
+            "></div>
+        }
+    </div>
+
+    <div class="login-card">
+        <div class="login-header">
+            <h2>
+                <i class="fas fa-bolt"></i>
+                Aygaz Smart Energy
+            </h2>
+            <p>Enerji Yönetim Sistemi</p>
+        </div>
+        
+        <div class="login-body">
+            <h3 class="mb-4 text-center">
+                <i class="fas fa-sign-in-alt me-2 text-primary"></i>
+                Giriş Yap
+            </h3>
+            
+            <p class="text-muted text-center mb-4">Hesabınıza erişmek için e-posta ve şifrenizi girin.</p>
 
             <form asp-action="Login" method="post">
                 @Html.AntiForgeryToken()
@@ -15,33 +162,43 @@
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
 
                 <div class="mb-3">
-                    <label asp-for="Email" class="form-label"></label>
-                    <input asp-for="Email" class="form-control" />
+                    <label asp-for="Email" class="form-label fw-semibold">
+                        <i class="fas fa-envelope me-2 text-primary"></i>E-posta Adresi
+                    </label>
+                    <input asp-for="Email" class="form-control form-control-lg" placeholder="ornek@email.com" />
                     <span asp-validation-for="Email" class="text-danger"></span>
                 </div>
 
                 <div class="mb-3">
-                    <label asp-for="Password" class="form-label"></label>
-                    <div class="input-group">
-                        <input asp-for="Password" class="form-control" />
-                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                    <label asp-for="Password" class="form-label fw-semibold">
+                        <i class="fas fa-lock me-2 text-primary"></i>Şifre
+                    </label>
+                    <div class="input-group input-group-lg">
+                        <input asp-for="Password" class="form-control" type="password" placeholder="Şifrenizi girin" />
+                        <span class="input-group-text bg-white">
+                            <i class="fas fa-eye text-muted"></i>
+                        </span>
                     </div>
                     <span asp-validation-for="Password" class="text-danger"></span>
                 </div>
 
-                <div class="form-check mb-3">
-                    <input class="form-check-input" asp-for="RememberMe" />
-                    <label class="form-check-label" asp-for="RememberMe"></label>
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" asp-for="RememberMe" id="rememberMe" />
+                    <label class="form-check-label" for="rememberMe">
+                        Beni hatırla
+                    </label>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100 mb-3">
+                <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
                     <i class="fas fa-sign-in-alt me-2"></i>Giriş Yap
                 </button>
             </form>
 
-            <div class="text-center">
+            <div class="text-center mt-4 pt-3 border-top">
                 <span class="text-muted">Hesabınız yok mu?</span>
-                <a asp-action="Register" class="fw-semibold">Hemen kayıt olun</a>
+                <a asp-action="Register" class="fw-semibold text-decoration-none ms-1" style="color: #667eea;">
+                    Hemen kayıt olun
+                </a>
             </div>
         </div>
     </div>
